@@ -58,6 +58,7 @@
     <li id='secret-link-file' v-if="(isNotHome || isNotBackground)" v-on:click="createSecretLink">Create secret link</li>
     <li id='share-file' v-if="(isNotHome || isNotBackground) && isLoggedIn" v-on:click="showShareWith">Share</li>
     <li id='shared-with-file' v-if="(isNotHome || isNotBackground) && isWritable" @click="showSharedWithView">Shared with</li>
+    <li id='video-capture' v-if="(isNotHome || isNotBackground) && isWritable" @click="showMediaCapture">Video capture</li>
   </ul>
   
   <tour
@@ -109,6 +110,11 @@
     :changepassword="changePassword" 
     :username="this.getContext().username">
   </password>
+  <video-capture
+          v-if="showVideoCapture"
+          v-on:hide-video-capture="showVideoCapture = false"
+          :videocapture="videoCapture">
+  </video-capture>
   <space 
     v-if="showRequestSpace" 
     v-on:hide-request-space="showRequestSpace = false"

@@ -127,7 +127,7 @@ self.onfetch = event => {
         headers: { 'Access-Control-Allow-Origin': '*' }
       }))
     }
-    if (event.request.headers.get('range')) {
+    if (event.request.headers.get('range') && streamingMap != null) {
         const streamingEntry = streamingMap.get(url)
         if (!streamingEntry) return;
         const [cacheEntry, port] = streamingEntry

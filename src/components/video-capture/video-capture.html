@@ -1,0 +1,24 @@
+<transition name="modal">
+<div class="modal-mask" @click="close">
+    <div style="height:30%"></div>
+    <div class="modal-container" @click.stop>
+
+      <div class="modal-header">
+        <h3> Video Capture</h3>
+      </div>
+
+      <div class="modal-body">
+          <div class="container">
+              <button class="btn btn-success" @click="toggleCapture">
+                  {{ buttonLabel }}
+              </button>
+              <center style="height:75%">
+                  <video id="preview" style="height:50%;max-width:50%;max-height:50%;text-align:center;line-height:200px" autoplay="autoplay" muted="muted" />
+              </center>
+          </div>
+      </div>
+      <div class="modal-footer">
+      </div>
+    </div>
+</div>
+</transition>
