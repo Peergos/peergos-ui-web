@@ -48,8 +48,8 @@
 
   </nav>
   <div id="sideMenu" class="sidenav">
-    <a><span/>&nbsp</a>
     <a id="homeButton" @click="goHome()"><span data-toggle="tooltip" data-placement="bottom" title="Global root" class="fas fa-globe-asia" style="cursor: pointer;"/></a>
+    <a v-if="isLoggedIn" @click="showChat"><span data-toggle="tooltip" data-placement="bottom" title="Messaging" class="fa fa-comments"/></a>
     <a id="timelineButton" v-if="isLoggedIn" @click="showTimelineView()"><span data-toggle="tooltip" data-placement="bottom" title="Timeline" class="fas fa-history" style="cursor: pointer;"/></a>
     <a v-if="isLoggedIn" @click="showCalendar"><span data-toggle="tooltip" data-placement="bottom" title="Calendar" class="fa fa-calendar-alt"/></a>
     <a v-if="isLoggedIn" @click="newTodoBoard"><span data-toggle="tooltip" data-placement="bottom" title="Todo Board" class="fas fa-tasks"/></a>
@@ -166,6 +166,15 @@
     :paymentProperties="paymentProperties"
     :updateQuota="updateQuota">
   </payment>
+  <chat
+    v-if="showChatViewer"
+    :closeChatViewer="closeChatViewer"
+    :context="context"
+    :getFileIconFromFileAndType="getFileIconFromFileAndType"
+    :friendnames="friendnames"
+    :displayProfile="displayProfile"
+    :socialFeed="socialFeed">
+  </chat>
   <feedback
     v-if="showFeedbackForm"
     :closeFeedbackForm="closeFeedbackForm"

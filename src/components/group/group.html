@@ -1,0 +1,61 @@
+<transition name="modal">
+<div class="modal-mask" @click="close">
+    <div class="modal-container full-height" @click.stop style="overflow-y:auto; max-width:1000px;">
+        <span @click="close" class="close">&times;</span>
+        <spinner v-if="showSpinner"></spinner>
+        <prompt
+                v-if="showPrompt"
+                v-on:hide-prompt="showPrompt = false"
+                :prompt_message='prompt_message'
+                :placeholder="prompt_placeholder"
+                :max_input_size="prompt_max_input_size"
+                :value="prompt_value"
+                :consumer_func="prompt_consumer_func">
+        </prompt>
+        <div class="modal-header">
+            <span>
+                <h4 style="text-align: center;" @click="changeGroupTitle()">{{ displayedTitle }}&nbsp;&nbsp;<i @click="changeGroupTitle()" class="fa fa-edit" aria-hidden="true"></i></h4>
+
+            </span>
+        </div>
+
+        <div class="modal-body">
+            <div class="container">
+              <div class="flex-container">
+                <div style="flex-grow:1; max-width:300px;">
+                  <input id="friend-name-input" v-model="targetUsername" type="text" class="token-input"></input>
+                </div>
+                <div style="padding:5px; display:flex;">
+                  <button :disabled="this.targetUsernames.slice().length == 0" class="btn btn-success" @click="addUsersToGroup()">Add to Group</button>
+                </div>
+              </div>
+            </div>
+            <div class="modal-body modal-prominent">
+                <div class="container" v-if="existingGroupMembers.length > 0"><p style="word-wrap;break-all;">
+                    Group Members:</p>
+                    <div v-for="user in existingGroupMembers">
+                        <input type="checkbox" v-bind:id="user" v-bind:value="user" v-model="membersToRemove">&nbsp;<span>{{ user }}</span>
+                    </div>
+                    <button :disabled="this.membersToRemove.length == 0" class="btn btn-success" v-on:click="removeUserFromGroup()">Revoke</button>
+                </div>
+                <div class="container" v-if="existingGroupMembers.length == 0"><p style="word-wrap;break-all;">
+                    Group Members:    None</p>
+                </div>
+            </div>
+            <error
+                    v-if="showError"
+                    v-on:hide-error="showError = false"
+                    :title="errorTitle"
+                    :body="errorBody">
+            </error>
+        </div>
+        <div class="modal-footer">
+            <slot name="footer">
+                <button class="btn btn-success" @click="updateGroupMembership">
+                    Update
+                </button>
+            </slot>
+        </div>
+    </div>
+</div>
+</transition>

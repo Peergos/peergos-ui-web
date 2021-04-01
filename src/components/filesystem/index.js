@@ -43,6 +43,7 @@ module.exports = {
             showSettingsMenu:false,
             showUploadMenu:false,
             showFeedbackForm: false,
+            showChatViewer: false,
             showSideNav: false,
             showTodoBoardViewer: false,
             newTodoBoardName: null,
@@ -1099,7 +1100,6 @@ module.exports = {
                 that.showSpinner = false;
             });
         },
-
         sendMessage: function(msgId, contents) {
             let that = this;
             let message = this.getMessage(msgId);
@@ -1132,6 +1132,27 @@ module.exports = {
             this.showFeedbackForm = false;
             this.messageId = null;
             this.popConversation(submittedMsgId);
+        },
+
+        showChat: function() {
+            let that = this;
+            if (this.showSpinner) {
+                return;
+            }
+            this.toggleNav();
+            const ctx = this.getContext()
+            this.showSpinner = true;
+            ctx.getSocialFeed().thenApply(function(socialFeed) {
+                that.socialFeed = socialFeed;
+                that.showSpinner = false;
+                that.showChatViewer = true;
+            }).exceptionally(function(throwable) {
+                that.showMessage(throwable.getMessage());
+                that.showSpinner = false;
+            });
+        },
+        closeChatViewer: function() {
+            this.showChatViewer = false;
         },
 
         loadMessageThread: function(msgId) {
