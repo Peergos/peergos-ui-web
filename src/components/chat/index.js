@@ -336,6 +336,13 @@ module.exports = {
             return filteredSharedItems;
         },
         close: function () {
+            if (this.emojiPicker != null) {
+                try {
+                this.emojiPicker.hidePicker();
+                } catch(ex) {
+                    //just means it is not open
+                }
+            }
             this.closeChatViewer();
         },
         truncateText: function(text, length) {

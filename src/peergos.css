@@ -904,13 +904,6 @@ h3 {word-wrap:break-word; white-space:normal;}
     border-radius: 6px;
 }
 
-.parent-message-reply {
-    border: 1px solid #c4c4c4;
-    border-radius: 6px;
-    width: 50%;
-    float: right;
-}
-
 .reply-message-container {
   display: inline-block;
   padding: 0 0 0 10px;
