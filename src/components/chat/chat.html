@@ -5,7 +5,7 @@
         <span @click="close" class="close">&times;</span>
         <div class="header">
             <h1 v-if="chatTitle.length == 0" >&nbsp;</h1>
-            <h1 v-if="chatTitle.length > 0" @click="editConversation" style="text-align: center;">{{ chatTitle }} </h1>
+            <h1 v-if="chatTitle.length > 0" style="text-align: center;cursor: pointer;" v-on:click="editCurrentConversation()">{{ chatTitle }} </h1>
         </div>
         <div v-if="progressMonitors.length>0" class="progressholder">
             <progressbar
@@ -79,7 +79,7 @@
                                         <span v-if="conversation.profileImage == null && conversation.participants.length == 1" v-on:click="profile(conversation)" class="fa fa-user picon-chat img-thumbail-chat"> </span>
                                         <span v-if="conversation.profileImage == null && conversation.participants.length > 1" class="fa fa-users picon-chat img-thumbail-chat"> </span>
                                     </div>
-                                    <div class="conversation">
+                                    <div class="conversation" v-on:click="editConversation(conversation)" style="cursor: pointer;">
                                         <h5>{{displayTitle(conversation)}}<span>{{formatDateTime(conversation.lastModified)}}</span></h5>
                                         <p>{{truncateText(conversation.blurb,40)}}</p>
                                     </div>
@@ -182,7 +182,7 @@
                                         <i class="fa fa-paper-plane" aria-hidden="true"></i>
                                     </button>
                                     <input type="file" id="uploadInput" @change="addAttachment" style="display:none;" accept="audio/*,video/*,image/*" />
-                                    <button :disabled="selectedConversationId.length == 0 || savingNewMsg" class="chat-btn btn-success attachment-btn" type="button" onclick="document.getElementById('uploadInput').click()">
+                                    <button :disabled="selectedConversationId == null || savingNewMsg" class="chat-btn btn-success attachment-btn" type="button" onclick="document.getElementById('uploadInput').click()">
                                         <i class="fa fa-paperclip" aria-hidden="true"></i>
                                     </button>
                                 </span>
