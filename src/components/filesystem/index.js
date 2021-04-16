@@ -1143,9 +1143,11 @@ module.exports = {
             const ctx = this.getContext()
             this.showSpinner = true;
             ctx.getSocialFeed().thenApply(function(socialFeed) {
-                that.socialFeed = socialFeed;
-                that.showSpinner = false;
-                that.showChatViewer = true;
+                socialFeed.update().thenApply(function(updatedSocialFeed) {
+                    that.socialFeed = updatedSocialFeed;
+                    that.showSpinner = false;
+                    that.showChatViewer = true;
+                });
             }).exceptionally(function(throwable) {
                 that.showMessage(throwable.getMessage());
                 that.showSpinner = false;
