@@ -32,14 +32,18 @@ module.exports = {
             attachment: null,
             emojiChooserBtn: null,
             emojiPicker: null,
-            messager: null
+            messager: null,
+            socialState: null
         }
     },
     props: ['context', 'closeChatViewer', 'friendnames', 'socialFeed','getFileIconFromFileAndType', 'displayProfile'],
     created: function() {
         let that = this;
         this.messager = new peergos.shared.messaging.Messager(this.context);
-        this.init();
+        this.context.getSocialState().thenApply(function(socialState){
+            that.socialState = socialState;
+            that.init();
+        });
         Vue.nextTick(function() {
             let element = document.getElementById('filter-conversations');
             element.addEventListener('keyup', function() {
@@ -297,7 +301,7 @@ module.exports = {
             let startIndex = chatController.startIndex;
             let existingMembers = that.removeSelfFromParticipants(chatController.controller.getMemberNames().toArray());
             let otherMember = existingMembers.length == 0 ? chatController.owner : existingMembers[0];
-            that.messager.mergeMessages(chatController.controller, otherMember).thenApply(latestController => {
+            that.messager.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
                 chatController.controller = latestController;
                 latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
@@ -680,7 +684,7 @@ module.exports = {
                 chatController.controller = controller;
                 let conversation = this.allConversations.get(controller.chatUuid);
                 let otherMember = conversation.participants[0];
-                that.messager.mergeMessages(controller, otherMember).thenApply(updatedController => {
+                that.messager.mergeAllUpdates(controller, this.socialState).thenApply(updatedController => {
                     let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
                     conversation.participants = participants;
                     if (participants.length == 1) {
