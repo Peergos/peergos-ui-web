@@ -32,14 +32,14 @@ module.exports = {
             attachment: null,
             emojiChooserBtn: null,
             emojiPicker: null,
-            messager: null,
+            messenger: null,
             socialState: null
         }
     },
     props: ['context', 'closeChatViewer', 'friendnames', 'socialFeed','getFileIconFromFileAndType', 'displayProfile'],
     created: function() {
         let that = this;
-        this.messager = new peergos.shared.messaging.Messager(this.context);
+        this.messenger = new peergos.shared.messaging.Messenger(this.context);
         this.context.getSocialState().thenApply(function(socialState){
             that.socialState = socialState;
             that.init();
@@ -252,7 +252,7 @@ module.exports = {
                 this.updatedSocialFeed = this.socialFeed;
                 this.pageStartIndex = this.updatedSocialFeed.getLastSeenIndex();
             }
-            this.messager.listChats().thenApply(function(chats) {
+            this.messenger.listChats().thenApply(function(chats) {
                 let existingChats = chats.toArray();
                 that.retrieveNewChats(existingChats).thenApply(function(res) {
                     that.spinner(false);
@@ -278,7 +278,7 @@ module.exports = {
         refreshUI: function(existingChats) {
             var that = this;
             this.spinner(true);
-            this.messager.listChats().thenApply(function(chats) {
+            this.messenger.listChats().thenApply(function(chats) {
                 let allChats = chats.toArray();
                 that.loadChatMessages(allChats).thenApply(function(allChats) {
                     that.updateMessageThreads(allChats);
@@ -300,8 +300,7 @@ module.exports = {
             let chatController = this.allChatControllers.get(conversationId);
             let startIndex = chatController.startIndex;
             let existingMembers = that.removeSelfFromParticipants(chatController.controller.getMemberNames().toArray());
-            let otherMember = existingMembers.length == 0 ? chatController.owner : existingMembers[0];
-            that.messager.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
+            that.messenger.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
                 chatController.controller = latestController;
                 latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
@@ -412,7 +411,7 @@ module.exports = {
             let conversation = this.allConversations.get(conversationId);
             this.spinner(true);
             if (conversation == null) {
-                this.messager.createChat().thenApply(function(controller){
+                this.messenger.createChat().thenApply(function(controller){
                     let conversationId = controller.chatUuid;
                     that.allChatControllers.set(controller.chatUuid,
                         {controller: controller, owner: that.context.username, startIndex: 0});
@@ -559,15 +558,17 @@ module.exports = {
                 if (low < 0) low = low + Math.pow(2, 32);
                 return low + (props.sizeHigh() * Math.pow(2, 32));
         },
-        reduceNewInvitations: function(controller, updatedMembers, index, future) {
+        reduceNewInvitations: function(conversationId, updatedMembers, index, future) {
             let that = this;
             if (index == updatedMembers.length) {
                 future.complete(true);
             } else {
+                let chatController = this.allChatControllers.get(conversationId);
                 let username = updatedMembers[index];
                 this.context.getPublicKeys(username).thenApply(pkOpt => {
-                    that.messager.invite(controller, username, pkOpt.get().left).thenApply(res => {
-                        that.reduceNewInvitations(controller, updatedMembers, ++index, future);
+                    that.messenger.invite(chatController.controller, username, pkOpt.get().left).thenApply(updatedController => {
+                        chatController.controller = updatedController;
+                        that.reduceNewInvitations(conversationId, updatedMembers, ++index, future);
                     });
                 });
             }
@@ -575,8 +576,7 @@ module.exports = {
         inviteNewParticipants: function(conversationId, updatedMembers) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
-            let controller = this.allChatControllers.get(conversationId).controller;
-            this.reduceNewInvitations(controller, updatedMembers, 0, future);
+            this.reduceNewInvitations(conversationId, updatedMembers, 0, future);
 
             let future2 = peergos.shared.util.Futures.incomplete();
             future.thenApply(done => {
@@ -591,27 +591,15 @@ module.exports = {
             });
             return future2;
         },
-        reduceRemovingInvitations: function(controller, membersToRemove, index, future) {
+        reduceRemovingInvitations: function(conversationId, membersToRemove, index, future) {
             future.complete(true);
             /* not implemented yet!
-            let that = this;
-            if (index == membersToRemove.length) {
-                future.complete(true);
-            } else {
-                let username = membersToRemove[index];
-                this.context.getPublicKeys(username).thenApply(pkOpt => {
-                    that.messager.invite(controller, username, pkOpt.get().left).thenApply(res => {
-                        that.reduceRemovingInvitations(controller, membersToRemove, ++index, future);
-                    });
-                });
-            }
             */
         },
         unInviteParticipants: function(conversationId, membersToRemove) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
-            let controller = this.allChatControllers.get(conversationId).controller;
-            this.reduceRemovingInvitations(controller, membersToRemove, 0, future);
+            this.reduceRemovingInvitations(conversationId, membersToRemove, 0, future);
 
             let future2 = peergos.shared.util.Futures.incomplete();
             future.thenApply(done => {
@@ -633,7 +621,7 @@ module.exports = {
             } else {
                 let currentPair = pairs[index];
                 let sharedChatDir = currentPair.right;
-                this.messager.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
+                this.messenger.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
                     that.reduceNewChats(pairs, ++index, future);
                 }).exceptionally(function(throwable) {
                     that.showMessage(throwable.getMessage());
@@ -673,36 +661,26 @@ module.exports = {
                     conversation.profileImageNA = false;
                 }
                 that.allConversations.set(controller.chatUuid, conversation);
+            }
+            chatController.controller = controller;
+            let conversation = this.allConversations.get(controller.chatUuid);
+            that.messenger.mergeAllUpdates(controller, this.socialState).thenApply(updatedController => {
+                chatController.controller = updatedController;
+                let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
+                conversation.participants = participants;
+                if (participants.length == 1) {
+                    conversation.profileImageNA = false;
+                }
                 //todo paging!
                 let startIndex = 0;
-                controller.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
+                updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
                     let messages = result.right.toArray();
                     future.complete({conversationId: controller.chatUuid, messages: messages});
                 });
-            } else {
-                chatController.controller = controller;
-                let conversation = this.allConversations.get(controller.chatUuid);
-                let otherMember = conversation.participants[0];
-                that.messager.mergeAllUpdates(controller, this.socialState).thenApply(updatedController => {
-                    let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
-                    conversation.participants = participants;
-                    if (participants.length == 1) {
-                        conversation.profileImageNA = false;
-                    }
-                    chatController.controller = updatedController;
-                    //todo paging!
-                    let startIndex = 0;
-                    updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
-                        chatController.startIndex += result.left.value_0;
-                        let messages = result.right.toArray();
-                        future.complete({conversationId: controller.chatUuid, messages: messages});
-                    });
-                }).exceptionally(function(throwable) {
-                    that.showMessage(throwable.getMessage());
-                });
-            }
-
+            }).exceptionally(function(throwable) {
+                that.showMessage(throwable.getMessage());
+            });
             return future;
         },
         reduceLoadingMessages: function(chats, index, accumulator, future) {
@@ -825,7 +803,7 @@ module.exports = {
             let postTime = peergos.client.JsUtil.now();
             let msg = new peergos.shared.messaging.Message.TextMessage(this.context.username, text, postTime);
             let bytes = msg.serialize();
-            controller.sendMessage(bytes).thenApply(function(updatedController) {
+            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 that.newMessageText = "";
                 that.savingNewMsg = false;
@@ -848,7 +826,7 @@ module.exports = {
             let postTime = peergos.client.JsUtil.now();
             let msg = new peergos.shared.messaging.Message.ConversationTitleMessage(this.context.username, text, postTime);
             let bytes = msg.serialize();
-            controller.sendMessage(bytes).thenApply(function(updatedController) {
+            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 future.complete(true);
             }).exceptionally(function(throwable) {
@@ -866,7 +844,7 @@ module.exports = {
             let postTime = peergos.client.JsUtil.now();
             let msg = new peergos.shared.messaging.Message.StatusMessage(text, postTime);
             let bytes = msg.serialize();
-            controller.sendMessage(bytes).thenApply(function(updatedController) {
+            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 future.complete(true);
             }).exceptionally(function(throwable) {

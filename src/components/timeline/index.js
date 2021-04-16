@@ -934,18 +934,18 @@ module.exports = {
             });
             return future;
         },
-        reduceNewChats: function(pairs, index, future, messager, remainingSharedItems) {
+        reduceNewChats: function(pairs, index, future, messenger, remainingSharedItems) {
             let that = this;
             if (index == pairs.length) {
                 future.complete(remainingSharedItems);
             } else {
                 let currentPair = pairs[index];
                 let sharedChatDir = currentPair.right;
-                messager.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
-                    that.reduceNewChats(pairs, ++index, future, messager, remainingSharedItems);
+                messenger.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
+                    that.reduceNewChats(pairs, ++index, future, messenger, remainingSharedItems);
                 }).exceptionally(function(throwable) {
                     that.showMessage(throwable.getMessage());
-                    that.reduceNewChats(pairs, ++index, future, messager, remainingSharedItems);
+                    that.reduceNewChats(pairs, ++index, future, messenger, remainingSharedItems);
                 });
             }
         },
@@ -961,8 +961,8 @@ module.exports = {
                 }
             }
             let future = peergos.shared.util.Futures.incomplete();
-            let messager = new peergos.shared.messaging.Messager(this.context);
-            this.reduceNewChats(chatSharedItems, 0, future, messager, remainingSharedItems);
+            let messenger = new peergos.shared.messaging.Messenger(this.context);
+            this.reduceNewChats(chatSharedItems, 0, future, messenger, remainingSharedItems);
             return future;
         },
         refresh: function() {
