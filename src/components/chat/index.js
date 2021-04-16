@@ -663,31 +663,42 @@ module.exports = {
                 chatController = {controller:controller, startIndex: 0, owner: chatOwner};
                 that.allChatControllers.set(controller.chatUuid, chatController);
                 that.allMessageThreads.set(controller.chatUuid, []);
-                let item = {id: controller.chatUuid};
-                that.allConversations.set(controller.chatUuid, item);
-            } else {
-                chatController.controller = controller;
-            }
-            let existingMembers = that.removeSelfFromParticipants(controller.getMemberNames().toArray());
-            let otherMember = existingMembers[0];
-            that.messager.mergeMessages(controller, otherMember).thenApply(updatedController => {
-                let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
-                let item = that.allConversations.get(updatedController.chatUuid);
-                item.participants = participants;
+                let participants = that.removeSelfFromParticipants(controller.getMemberNames().toArray());
+                let conversation = {id: controller.chatUuid, participants: participants};
                 if (participants.length == 1) {
-                    item.profileImageNA = false;
+                    conversation.profileImageNA = false;
                 }
-                chatController.controller = updatedController;
+                that.allConversations.set(controller.chatUuid, conversation);
                 //todo paging!
                 let startIndex = 0;
-                updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
+                controller.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
                     let messages = result.right.toArray();
                     future.complete({conversationId: controller.chatUuid, messages: messages});
                 });
-            }).exceptionally(function(throwable) {
-                that.showMessage(throwable.getMessage());
-            });
+            } else {
+                chatController.controller = controller;
+                let conversation = this.allConversations.get(controller.chatUuid);
+                let otherMember = conversation.participants[0];
+                that.messager.mergeMessages(controller, otherMember).thenApply(updatedController => {
+                    let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
+                    conversation.participants = participants;
+                    if (participants.length == 1) {
+                        conversation.profileImageNA = false;
+                    }
+                    chatController.controller = updatedController;
+                    //todo paging!
+                    let startIndex = 0;
+                    updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
+                        chatController.startIndex += result.left.value_0;
+                        let messages = result.right.toArray();
+                        future.complete({conversationId: controller.chatUuid, messages: messages});
+                    });
+                }).exceptionally(function(throwable) {
+                    that.showMessage(throwable.getMessage());
+                });
+            }
+
             return future;
         },
         reduceLoadingMessages: function(chats, index, accumulator, future) {
