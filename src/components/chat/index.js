@@ -428,7 +428,6 @@ module.exports = {
                     });
                 });
             } else {
-                conversation.title = updatedGroupTitle;
                 if (updatedMembers.length == 1) {
                     conversation.profileImageNA = false;
                 }
@@ -438,7 +437,14 @@ module.exports = {
                 that.inviteNewParticipants(conversationId, added).thenApply(function(res1) {
                     that.unInviteParticipants(conversationId, removed).thenApply(function(res2) {
                         that.spinner(false);
-                        that.refreshConversation(conversationId);
+                        if (conversation.title != updatedGroupTitle) {
+                            conversation.title = updatedGroupTitle;
+                            that.changeTitle(conversationId, updatedGroupTitle).thenApply(function(res3) {
+                                that.refreshConversation(conversationId);
+                            });
+                        } else {
+                            that.refreshConversation(conversationId);
+                        }
                     });
                 });
             }

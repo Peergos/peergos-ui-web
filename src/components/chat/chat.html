@@ -76,7 +76,7 @@
                                 <div @click="selectConversation(conversation)" v-bind:class="{ conversationContainer: true, activeConversation: isConversationSelected(conversation) }">
                                     <div class="chat_img">
                                         <img v-if="conversation.profileImage !=null && conversation.profileImage.length > 0" v-on:click="profile(conversation)" v-bind:src="conversation.profileImage" class="img-thumbail-chat">
-                                        <span v-if="conversation.profileImage == null && conversation.participants.length == 1" v-on:click="profile(conversation)" class="fa fa-user picon-chat img-thumbail-chat"> </span>
+                                        <span v-if="conversation.profileImage == null && conversation.participants.length <= 1" v-on:click="profile(conversation)" class="fa fa-user picon-chat img-thumbail-chat"> </span>
                                         <span v-if="conversation.profileImage == null && conversation.participants.length > 1" class="fa fa-users picon-chat img-thumbail-chat"> </span>
                                     </div>
                                     <div class="conversation">
