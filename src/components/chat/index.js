@@ -298,10 +298,9 @@ module.exports = {
             var that = this;
             this.spinner(true);
             let chatController = this.allChatControllers.get(conversationId);
-            let startIndex = chatController.startIndex;
-            let existingMembers = that.removeSelfFromParticipants(chatController.controller.getMemberNames().toArray());
             that.messenger.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
                 chatController.controller = latestController;
+                let startIndex = chatController.startIndex;
                 latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
                     that.updateMessageThread(conversationId, result.right.toArray());
@@ -672,8 +671,8 @@ module.exports = {
                     conversation.profileImageNA = false;
                 }
                 //todo paging!
-                let startIndex = 0;
-                updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
+                let startIndex = chatController.startIndex;
+                updatedController.getFilteredMessages(startIndex, startIndex + 10000).thenApply(result => {
                     chatController.startIndex += result.left.value_0;
                     let messages = result.right.toArray();
                     future.complete({conversationId: controller.chatUuid, messages: messages});
