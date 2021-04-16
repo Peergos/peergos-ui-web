@@ -79,7 +79,7 @@
                                         <span v-if="conversation.profileImage == null && conversation.participants.length == 1" v-on:click="profile(conversation)" class="fa fa-user picon-chat img-thumbail-chat"> </span>
                                         <span v-if="conversation.profileImage == null && conversation.participants.length > 1" class="fa fa-users picon-chat img-thumbail-chat"> </span>
                                     </div>
-                                    <div class="conversation" v-on:click="editConversation(conversation)" style="cursor: pointer;">
+                                    <div class="conversation">
                                         <h5>{{displayTitle(conversation)}}<span>{{formatDateTime(conversation.lastModified)}}</span></h5>
                                         <p>{{truncateText(conversation.blurb,40)}}</p>
                                     </div>
