@@ -295,19 +295,19 @@ module.exports = {
             this.spinner(true);
             let chatController = this.allChatControllers.get(conversationId);
             let startIndex = chatController.startIndex;
-            //this.messager.getChat(conversationId).thenApply(updatedController => {
-                that.messager.mergeMessages(chatController.controller, chatController.mirrorUsername).thenApply(latestController => {
-                    chatController.controller = latestController;
-                    latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
-                        chatController.startIndex += result.left.value_0;
-                        that.updateMessageThread(conversationId, result.right.toArray());
-                        that.buildConversations();
-                        that.buildMessageThread(conversationId);
-                        that.updateScrollPane();
-                        that.spinner(false);
-                    });
+            let existingMembers = that.removeSelfFromParticipants(chatController.controller.getMemberNames().toArray());
+            let otherMember = existingMembers.length == 0 ? chatController.owner : existingMembers[0];
+            that.messager.mergeMessages(chatController.controller, otherMember).thenApply(latestController => {
+                chatController.controller = latestController;
+                latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
+                    chatController.startIndex += result.left.value_0;
+                    that.updateMessageThread(conversationId, result.right.toArray());
+                    that.buildConversations();
+                    that.buildMessageThread(conversationId);
+                    that.updateScrollPane();
+                    that.spinner(false);
                 });
-            //});
+            });
         },
         retrieveNewChats: function(existingChats) {
             var future = peergos.shared.util.Futures.incomplete();
@@ -411,7 +411,7 @@ module.exports = {
                 this.messager.createChat().thenApply(function(controller){
                     let conversationId = controller.chatUuid;
                     that.allChatControllers.set(controller.chatUuid,
-                        {controller: controller, mirrorUsername: that.context.username, startIndex: 0});
+                        {controller: controller, owner: that.context.username, startIndex: 0});
                     let item = {id: conversationId, title: updatedGroupTitle, participants: updatedMembers};
                     if (updatedMembers.length == 1) {
                         item.profileImageNA = false;
@@ -629,9 +629,7 @@ module.exports = {
             } else {
                 let currentPair = pairs[index];
                 let sharedChatDir = currentPair.right;
-                let pathParts = currentPair.left.path.split('/');
-                let uuid = pathParts[pathParts.length -2];
-                this.messager.cloneLocallyAndJoin(uuid, sharedChatDir).thenApply(res => {
+                this.messager.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
                     that.reduceNewChats(pairs, ++index, future);
                 }).exceptionally(function(throwable) {
                     that.showMessage(throwable.getMessage());
@@ -652,38 +650,43 @@ module.exports = {
             }
             return copyOfParticipants;
         },
+        extractChatOwner: function(chatUuid) {
+            let withoutPrefix = chatUuid.substring(0,5);//chat:
+            return withoutPrefix.substring(0,withoutPrefix.indexOf(":"));
+        },
         readChatMessages: function(controller) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
             let chatController = that.allChatControllers.get(controller.chatUuid);
             if (chatController == null) {
-                chatController = {startIndex: 0};
+                let chatOwner = this.extractChatOwner(controller.chatUuid);
+                chatController = {controller:controller, startIndex: 0, owner: chatOwner};
+                that.allChatControllers.set(controller.chatUuid, chatController);
                 that.allMessageThreads.set(controller.chatUuid, []);
                 let item = {id: controller.chatUuid};
                 that.allConversations.set(controller.chatUuid, item);
+            } else {
+                chatController.controller = controller;
             }
-            controller.getFilteredMessages(0, 4).thenApply(result => {
-                chatController.mirrorUsername = result.right.toArray()[0].username;
-                that.messager.mergeMessages(controller, chatController.mirrorUsername).thenApply(updatedController => {
-                    let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
-                    let item = that.allConversations.get(updatedController.chatUuid);
-                    item.participants = participants;
-                    if (participants.length == 1) {
-                        item.profileImageNA = false;
-                    }
-                    that.allConversations.set(updatedController.chatUuid, item);
-                    chatController.controller = updatedController;
-                    that.allChatControllers.set(controller.chatUuid, chatController);
-                    //todo paging!
-                    let startIndex = 0;
-                    updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
-                        chatController.startIndex += result.left.value_0;
-                        let messages = result.right.toArray();
-                        future.complete({conversationId: controller.chatUuid, messages: messages});
-                    });
-                }).exceptionally(function(throwable) {
-                    that.showMessage(throwable.getMessage());
+            let existingMembers = that.removeSelfFromParticipants(controller.getMemberNames().toArray());
+            let otherMember = existingMembers[0];
+            that.messager.mergeMessages(controller, otherMember).thenApply(updatedController => {
+                let participants = that.removeSelfFromParticipants(updatedController.getMemberNames().toArray());
+                let item = that.allConversations.get(updatedController.chatUuid);
+                item.participants = participants;
+                if (participants.length == 1) {
+                    item.profileImageNA = false;
+                }
+                chatController.controller = updatedController;
+                //todo paging!
+                let startIndex = 0;
+                updatedController.getFilteredMessages(0, startIndex + 10000).thenApply(result => {
+                    chatController.startIndex += result.left.value_0;
+                    let messages = result.right.toArray();
+                    future.complete({conversationId: controller.chatUuid, messages: messages});
                 });
+            }).exceptionally(function(throwable) {
+                that.showMessage(throwable.getMessage());
             });
             return future;
         },

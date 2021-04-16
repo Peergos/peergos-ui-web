@@ -941,9 +941,7 @@ module.exports = {
             } else {
                 let currentPair = pairs[index];
                 let sharedChatDir = currentPair.right;
-                let pathParts = currentPair.left.path.split('/');
-                let uuid = pathParts[pathParts.length -2];
-                messager.cloneLocallyAndJoin(uuid, sharedChatDir).thenApply(res => {
+                messager.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
                     that.reduceNewChats(pairs, ++index, future, messager, remainingSharedItems);
                 }).exceptionally(function(throwable) {
                     that.showMessage(throwable.getMessage());
