@@ -317,7 +317,7 @@ module.exports = {
             let that = this;
             //todo - need to do paging!
             let startIndex = this.pageStartIndex;
-            this.socialFeed.getShared(startIndex, startIndex + 1000, ctx.crypto, ctx.network).thenApply(function(items) {
+            this.updatedSocialFeed.getShared(startIndex, startIndex + 1000, ctx.crypto, ctx.network).thenApply(function(items) {
                 let sharedItems = items.toArray();
                 that.pageStartIndex += startIndex + 1000;
                 that.context.getFiles(peergos.client.JsUtil.asList(that.filterNewChats(sharedItems, existingChats))).thenApply(function(pairs) {
