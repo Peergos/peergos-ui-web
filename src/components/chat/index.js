@@ -157,7 +157,7 @@ module.exports = {
                 future.complete(null);
             } else {
                 let postTime = peergos.client.JsUtil.now();
-                this.socialFeed.uploadMediaForPost(java_reader, mediaFile.size, postTime, updateProgressBar).thenApply(function(pair) {
+                this.updatedSocialFeed.uploadMediaForPost(java_reader, mediaFile.size, postTime, updateProgressBar).thenApply(function(pair) {
                     var thumbnailAllocation = Math.min(100000, mediaFile.size / 10);
                     updateProgressBar({ value_0: thumbnailAllocation});
                     that.context.getByPath(pair.right.path).thenApply(function(fileOpt){
@@ -368,12 +368,6 @@ module.exports = {
             let localStr =  date.toISOString().replace('T',' ');
             let withoutMS = localStr.substring(0, localStr.indexOf('.'));
             return withoutMS;
-        },
-        uuidv4: function() {
-          let uuid = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-          ).split("-").join("");
-          return uuid.substring(0, 16);
         },
         getExistingConversationTitles: function() {
             let existingGroups = [];
