@@ -222,8 +222,8 @@ module.exports = {
         updateMessageThread: function (conversationId, chatMessages) {
             let messageThread = this.allMessageThreads.get(conversationId);
             for(var j = 0; j < chatMessages.length; j++) {
-                let chatMessage = chatMessages[j];
-                let payload = chatMessage.payload;
+                let chatEnvelope = chatMessages[j];
+                let payload = chatEnvelope.payload;
                 let type = payload.type().toString();
                 let postTime = peergos.client.JsUtil.now(); //todo
                 if (type == 'GroupState') {//type
@@ -235,7 +235,9 @@ module.exports = {
                         messageThread.push(this.createStatusMessage(postTime, payload.value));
                     }
                 } else if(type == 'Application') {
-                    messageThread.push(this.createMessage("noone", payload.body.content, null, null, null));
+                    let chatController = this.allChatControllers.get(conversationId);
+                    let author = chatController.controller.getAuthorUsername(chatEnvelope);
+                    messageThread.push(this.createMessage(author, payload.body.content, null, null, null));
                 }
             }
             this.allMessageThreads.set(conversationId, messageThread);
