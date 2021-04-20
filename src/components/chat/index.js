@@ -223,15 +223,19 @@ module.exports = {
             let messageThread = this.allMessageThreads.get(conversationId);
             for(var j = 0; j < chatMessages.length; j++) {
                 let chatMessage = chatMessages[j];
-                let clazzName = chatMessage.type();
-                if (clazzName == 'peergos.shared.messaging.Message$ConversationTitleMessage') {
-                    messageThread.push(this.createStatusMessage(chatMessage.postTime, "Conversation name changed to: " + chatMessage.title));
-                    let conversation = this.allConversations.get(conversationId);
-                    conversation.title = chatMessage.title;
-                } else if (clazzName == 'peergos.shared.messaging.Message$StatusMessage') {
-                    messageThread.push(this.createStatusMessage(chatMessage.postTime, chatMessage.status));
-                } else if(clazzName == 'peergos.shared.messaging.Message$TextMessage') {
-                    messageThread.push(this.createMessage(chatMessage, null, null, null));
+                let payload = chatMessage.payload;
+                let type = payload.type().toString();
+                let postTime = peergos.client.JsUtil.now(); //todo
+                if (type == 'GroupState') {//type
+                    if(payload.key == "title") {
+                        messageThread.push(this.createStatusMessage(postTime, "Conversation name changed to: " + payload.value));
+                        let conversation = this.allConversations.get(conversationId);
+                        conversation.title = payload.value;
+                    } else {
+                        messageThread.push(this.createStatusMessage(postTime, payload.value));
+                    }
+                } else if(type == 'Application') {
+                    messageThread.push(this.createMessage("noone", payload.body.content, null, null, null));
                 }
             }
             this.allMessageThreads.set(conversationId, messageThread);
@@ -301,9 +305,10 @@ module.exports = {
             that.messenger.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
                 chatController.controller = latestController;
                 let startIndex = chatController.startIndex;
-                latestController.getFilteredMessages(startIndex, startIndex + 1000).thenApply(result => {
-                    chatController.startIndex += result.left.value_0;
-                    that.updateMessageThread(conversationId, result.right.toArray());
+                latestController.getMessages(startIndex, startIndex + 1000).thenApply(result => {
+                    let messages = result.toArray();
+                    chatController.startIndex += messages.length;
+                    that.updateMessageThread(conversationId, messages);
                     that.buildConversations();
                     that.buildMessageThread(conversationId);
                     that.updateScrollPane();
@@ -455,6 +460,9 @@ module.exports = {
         },
         editCurrentConversation: function() {
             if (this.selectedConversationId == null) {
+                return;
+            }
+            if (this.extractChatOwner(this.selectedConversationId) != this.context.username) {
                 return;
             }
             let conversation = this.allConversations.get(this.selectedConversationId);
@@ -642,7 +650,7 @@ module.exports = {
             return copyOfParticipants;
         },
         extractChatOwner: function(chatUuid) {
-            let withoutPrefix = chatUuid.substring(0,5);//chat:
+            let withoutPrefix = chatUuid.substring(5);//chat:
             return withoutPrefix.substring(0,withoutPrefix.indexOf(":"));
         },
         readChatMessages: function(controller) {
@@ -672,9 +680,9 @@ module.exports = {
                 }
                 //todo paging!
                 let startIndex = chatController.startIndex;
-                updatedController.getFilteredMessages(startIndex, startIndex + 10000).thenApply(result => {
-                    chatController.startIndex += result.left.value_0;
-                    let messages = result.right.toArray();
+                updatedController.getMessages(startIndex, startIndex + 10000).thenApply(result => {
+                    let messages = result.toArray();
+                    chatController.startIndex += messages.length;
                     future.complete({conversationId: controller.chatUuid, messages: messages});
                 });
             }).exceptionally(function(throwable) {
@@ -799,10 +807,8 @@ module.exports = {
             this.spinner(true);
             let chatController = this.allChatControllers.get(conversationId);
             let controller = chatController.controller;
-            let postTime = peergos.client.JsUtil.now();
-            let msg = new peergos.shared.messaging.Message.TextMessage(this.context.username, text, postTime);
-            let bytes = msg.serialize();
-            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
+            let msg = peergos.shared.messaging.messages.ApplicationMessage.text(text);
+            this.messenger.sendMessage(controller, msg).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 that.newMessageText = "";
                 that.savingNewMsg = false;
@@ -822,10 +828,7 @@ module.exports = {
             let that = this;
             let chatController = this.allChatControllers.get(conversationId);
             let controller = chatController.controller;
-            let postTime = peergos.client.JsUtil.now();
-            let msg = new peergos.shared.messaging.Message.ConversationTitleMessage(this.context.username, text, postTime);
-            let bytes = msg.serialize();
-            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
+            this.messenger.setGroupProperty(controller, "title", text).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 future.complete(true);
             }).exceptionally(function(throwable) {
@@ -840,10 +843,7 @@ module.exports = {
             let that = this;
             let chatController = this.allChatControllers.get(conversationId);
             let controller = chatController.controller;
-            let postTime = peergos.client.JsUtil.now();
-            let msg = new peergos.shared.messaging.Message.StatusMessage(text, postTime);
-            let bytes = msg.serialize();
-            this.messenger.sendMessage(controller, bytes).thenApply(function(updatedController) {
+            this.messenger.setGroupProperty(controller, "status", text).thenApply(function(updatedController) {
                 chatController.controller = updatedController;
                 future.complete(true);
             }).exceptionally(function(throwable) {
@@ -853,13 +853,13 @@ module.exports = {
             });
             return future;
         },
-        createMessage: function(message, mediaFile, mediaFilePath, parentMessage) {
-            let timestamp = message.postTime;
+        createMessage: function(author, message, mediaFile, mediaFilePath, parentMessage) {
+            let timestamp = peergos.client.JsUtil.now(); //todo
             let fileType = mediaFile == null ? "" : mediaFile.getFileProperties().getType();
             let thumbnail = (mediaFile != null && mediaFile.getFileProperties().thumbnail.ref != null) ? mediaFile.getBase64Thumbnail() : "";
             let entry = {isStatusMsg: false, file: mediaFile, fileType: fileType,
-                sender: message.username, hasThumbnail: thumbnail.length > 0, thumbnail: thumbnail
-                , sendTime: timestamp.toString(), contents: message.message, mediaFilePath: mediaFilePath
+                sender: author, hasThumbnail: thumbnail.length > 0, thumbnail: thumbnail
+                , sendTime: timestamp.toString(), contents: message, mediaFilePath: mediaFilePath
                 , parentMessage: parentMessage, isDeleted: false};
             return entry;
         },
