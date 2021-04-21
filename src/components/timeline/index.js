@@ -917,15 +917,18 @@ module.exports = {
             let future = peergos.shared.util.Futures.incomplete();
             this.context.getFiles(peergos.client.JsUtil.asList(items)).thenApply(function(pairs) {
                 let allPairs = pairs.toArray();
-                that.handleChats(allPairs).thenApply(function(remainingPairs) {
-                    that.loadFiles(remainingPairs).thenApply(function(sharedItems) {
-                        that.loadParentPosts(sharedItems).thenApply(function(parentPosts) {
-                            that.loadCommentPosts(sharedItems.concat(parentPosts)).thenApply(function(commentPosts) {
-                                let sortedList = that.mergeAndSortPosts(sharedItems, parentPosts, commentPosts);
-                                that.loadMediaPosts(sortedList).thenApply(function(mediaPosts) {
-                                    let entries = that.organiseEntries(sortedList, mediaPosts);
-                                    let allTimelineEntries = that.populateTimeline(entries);
-                                    future.complete(allTimelineEntries);
+                let messenger = new peergos.shared.messaging.Messenger(that.context);
+                messenger.listChats().thenApply(function(chats) {
+                    that.handleChats(messenger, chats.toArray(), allPairs).thenApply(function(remainingPairs) {
+                        that.loadFiles(remainingPairs).thenApply(function(sharedItems) {
+                            that.loadParentPosts(sharedItems).thenApply(function(parentPosts) {
+                                that.loadCommentPosts(sharedItems.concat(parentPosts)).thenApply(function(commentPosts) {
+                                    let sortedList = that.mergeAndSortPosts(sharedItems, parentPosts, commentPosts);
+                                    that.loadMediaPosts(sortedList).thenApply(function(mediaPosts) {
+                                        let entries = that.organiseEntries(sortedList, mediaPosts);
+                                        let allTimelineEntries = that.populateTimeline(entries);
+                                        future.complete(allTimelineEntries);
+                                    });
                                 });
                             });
                         });
@@ -949,19 +952,22 @@ module.exports = {
                 });
             }
         },
-        handleChats: function(allPairs) {
+        handleChats: function(messenger, existingChats, allPairs) {
             let remainingSharedItems = [];
             let chatSharedItems = [];
             for(var i = 0; i < allPairs.length; i++) {
                 let currentSharedItem = allPairs[i];
                 if (currentSharedItem.left.path.includes("/.messaging/")) {
-                    chatSharedItems.push(currentSharedItem);
+                    let pathParts = currentSharedItem.left.path.split('/');
+                    let uuid = pathParts[pathParts.length -2];
+                    if(existingChats.findIndex(v => v.chatUuid == uuid) == -1) {
+                        chatSharedItems.push(currentSharedItem);
+                    }
                 } else {
                     remainingSharedItems.push(currentSharedItem);
                 }
             }
             let future = peergos.shared.util.Futures.incomplete();
-            let messenger = new peergos.shared.messaging.Messenger(this.context);
             this.reduceNewChats(chatSharedItems, 0, future, messenger, remainingSharedItems);
             return future;
         },

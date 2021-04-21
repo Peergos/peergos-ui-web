@@ -12,7 +12,6 @@ module.exports = {
             allMessageThreads: new Map(),
             chatTitle: "",
             pageStartIndex : 0,
-            updatedSocialFeed: null,
             savingNewMsg: false,
             showConfirm: false,
             confirm_message: "",
@@ -33,17 +32,13 @@ module.exports = {
             emojiChooserBtn: null,
             emojiPicker: null,
             messenger: null,
-            socialState: null
         }
     },
-    props: ['context', 'closeChatViewer', 'friendnames', 'socialFeed','getFileIconFromFileAndType', 'displayProfile'],
+    props: ['context', 'closeChatViewer', 'friendnames', 'socialFeed', 'socialState', 'getFileIconFromFileAndType', 'displayProfile'],
     created: function() {
         let that = this;
         this.messenger = new peergos.shared.messaging.Messenger(this.context);
-        this.context.getSocialState().thenApply(function(socialState){
-            that.socialState = socialState;
-            that.init();
-        });
+        this.init();
         Vue.nextTick(function() {
             let element = document.getElementById('filter-conversations');
             element.addEventListener('keyup', function() {
@@ -157,7 +152,7 @@ module.exports = {
                 future.complete(null);
             } else {
                 let postTime = peergos.client.JsUtil.now();
-                this.updatedSocialFeed.uploadMediaForPost(java_reader, mediaFile.size, postTime, updateProgressBar).thenApply(function(pair) {
+                this.socialFeed.uploadMediaForPost(java_reader, mediaFile.size, postTime, updateProgressBar).thenApply(function(pair) {
                     var thumbnailAllocation = Math.min(100000, mediaFile.size / 10);
                     updateProgressBar({ value_0: thumbnailAllocation});
                     that.context.getByPath(pair.right.path).thenApply(function(fileOpt){
@@ -252,34 +247,13 @@ module.exports = {
             this.showSpinner = val;
         },
         init: function() {
-            var that = this;
-            this.spinner(true);
-            if (this.updatedSocialFeed == null) {
-                this.updatedSocialFeed = this.socialFeed;
-                this.pageStartIndex = this.updatedSocialFeed.getLastSeenIndex();
-            }
-            this.messenger.listChats().thenApply(function(chats) {
-                let existingChats = chats.toArray();
-                that.retrieveNewChats(existingChats).thenApply(function(res) {
-                    that.spinner(false);
-                    that.refreshUI();
-                }).exceptionally(function(throwable) {
-                   that.showMessage(throwable.getMessage());
-                   that.spinner(false);
-                });
-            });
+            this.refreshUI();
         },
         fullRefresh: function() {
             if (this.showSpinner) {
                 return;
             }
-            let that = this;
-            this.spinner(true);
-            this.updatedSocialFeed.update().thenApply(function(updated) {
-                that.spinner(false);
-                that.updatedSocialFeed = updated;
-                that.init();
-            });
+            this.init();
         },
         refreshUI: function(existingChats) {
             var that = this;
@@ -317,42 +291,6 @@ module.exports = {
                     that.spinner(false);
                 });
             });
-        },
-        retrieveNewChats: function(existingChats) {
-            var future = peergos.shared.util.Futures.incomplete();
-            var ctx = this.context;
-            let that = this;
-            //todo - need to do paging!
-            let startIndex = this.pageStartIndex;
-            this.updatedSocialFeed.getShared(startIndex, startIndex + 1000, ctx.crypto, ctx.network).thenApply(function(items) {
-                let sharedItems = items.toArray();
-                that.pageStartIndex += startIndex + 1000;
-                that.context.getFiles(peergos.client.JsUtil.asList(that.filterNewChats(sharedItems, existingChats))).thenApply(function(pairs) {
-                    let allPairs = pairs.toArray();
-                    that.loadNewChats(allPairs).thenApply(function(res) {
-                        future.complete(true);
-                    });
-                });
-            }).exceptionally(function(throwable) {
-                that.showMessage(throwable.getMessage());
-                that.spinner(false);
-                future.complete(false);
-            });
-            return future;
-        },
-        filterNewChats: function(items, existingChats) {
-            let filteredSharedItems = [];
-            for(var i = 0; i < items.length; i++) {
-                let currentSharedItem = items[i];
-                if (currentSharedItem.path.includes("/.messaging/")) {
-                    let pathParts = currentSharedItem.path.split('/');
-                    let uuid = pathParts[pathParts.length -2];
-                    if(existingChats.findIndex(v => v.chatUuid == uuid) == -1) {
-                        filteredSharedItems.push(currentSharedItem);
-                    }
-                }
-            }
-            return filteredSharedItems;
         },
         close: function () {
             if (this.emojiPicker != null) {
