@@ -220,14 +220,13 @@ module.exports = {
                 let chatEnvelope = chatMessages[j];
                 let payload = chatEnvelope.payload;
                 let type = payload.type().toString();
-                let postTime = peergos.client.JsUtil.now(); //todo
                 if (type == 'GroupState') {//type
                     if(payload.key == "title") {
-                        messageThread.push(this.createStatusMessage(postTime, "Conversation name changed to: " + payload.value));
+                        messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "Conversation name changed to: " + payload.value));
                         let conversation = this.allConversations.get(conversationId);
                         conversation.title = payload.value;
                     } else {
-                        messageThread.push(this.createStatusMessage(postTime, payload.value));
+                        messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, payload.value));
                     }
                 } else if(type == 'Application') {
                     let chatController = this.allChatControllers.get(conversationId);
