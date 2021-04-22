@@ -1133,13 +1133,8 @@ module.exports = {
             this.messageId = null;
             this.popConversation(submittedMsgId);
         },
-
-        showChat: function() {
+        viewConversations: function() {
             let that = this;
-            if (this.showSpinner) {
-                return;
-            }
-            this.toggleNav();
             const ctx = this.getContext()
             this.showSpinner = true;
             ctx.getSocialFeed().thenApply(function(socialFeed) {
@@ -1153,6 +1148,13 @@ module.exports = {
                 that.showMessage(throwable.getMessage());
                 that.showSpinner = false;
             });
+        },
+        showChat: function() {
+            if (this.showSpinner) {
+                return;
+            }
+            this.toggleNav();
+            this.viewConversations();
         },
         closeChatViewer: function() {
             this.showChatViewer = false;

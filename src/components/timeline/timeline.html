@@ -77,10 +77,12 @@
                                     <div v-if="!entry[0].isLastEntry">
                                         <div v-if="!entry[0].isPost && !entry[0].isMedia">
                                             <span class="grid_icon_wrapper fa">
-                                                <a v-if="!entry[0].hasThumbnail">
+                                                <a v-if="!entry[0].hasThumbnail && !entry[0].isChat">
                                                     <span style="height:100px" v-on:click="view(entry[0])" v-bind:class="[entry[0].isDirectory ? 'dir' : 'file', getFileIconFromFileAndType(entry[0].file, entry[0].fileType), 'picon-timeline']"> </span>
                                                 </a>
-                                                <img v-if="entry[0].hasThumbnail" v-on:click="view(entry[0])" v-bind:src="entry[0].thumbnail" style="cursor: pointer"/>
+                                                <img v-if="entry[0].hasThumbnail && !entry[0].isChat" v-on:click="view(entry[0])" v-bind:src="entry[0].thumbnail" style="cursor: pointer"/>
+                                                <button v-if="entry[0].isChat && entry[0].isNewChat" class="btn btn-success" @click="joinConversation(entry[0])">Join Conversation</button>
+                                                <button v-if="entry[0].isChat && !entry[0].isNewChat" class="btn btn-success" @click="openConversations()">View Conversations</button>
                                             </span>
                                         </div>
                                     </div>

@@ -25,16 +25,19 @@ module.exports = {
             confirm_consumer_func: () => {},
             hasLoadedInitialResults: false,
             socialFeed: null,
-            seenPosts: new Map()
+            seenPosts: new Map(),
+            knownChats: [],
+            messenger: null
         }
     },
     props: ['context','navigateToAction','viewAction', 'messages', 'getFileIconFromFileAndType', 'socialFeedInstance',
         'updateSocialFeedInstance', 'importCalendarFile', 'importSharedCalendar', 'displayProfile', 'groups',
-        'followingnames', 'friendnames', 'followernames'],
+        'followingnames', 'friendnames', 'followernames', 'viewConversations'],
     created: function() {
         let that = this;
         Vue.nextTick(function() {
             that.socialFeed = that.socialFeedInstance;
+            that.messenger = new peergos.shared.messaging.Messenger(that.context);
             that.init();
         });
     },
@@ -311,7 +314,8 @@ module.exports = {
                         that.addToSeen(currentPair.left.path);
                         let socialPost = result ? result.socialPost : null;
                         let fullPath = currentPair.left.path.startsWith("/") ? currentPair.left.path : "/" + currentPair.left.path;
-                        accumulator = accumulator.concat({entry: currentPair.left, path: fullPath, socialPost: socialPost, file: currentPair.right});
+                        let isChat = fullPath.includes("/.messaging/") ? true : false;
+                        accumulator = accumulator.concat({isChat: isChat, entry: currentPair.left, path: fullPath, socialPost: socialPost, file: currentPair.right});
                         that.reduceLoadingAllFiles(pairs, ++index, accumulator, future);
                     });
                 }
@@ -547,6 +551,22 @@ module.exports = {
                 show: true
             });
         },
+        joinConversation: function (entry) {
+            let that = this;
+            that.showSpinner = true;
+            this.messenger.cloneLocallyAndJoin(entry.file).thenApply(res => {
+                that.showSpinner = false;
+                that.refresh();
+            }).exceptionally(function(throwable) {
+                console.log("Unable to join Chat. Error:" + throwable.getMessage());
+                that.showMessage("Unable to join Chat");
+                that.showSpinner = false;
+            });
+        },
+        openConversations: function () {
+            this.close();
+            this.viewConversations();
+        },
         navigateTo: function (entry) {
             this.close();
             this.navigateToAction(entry.path);
@@ -623,7 +643,16 @@ module.exports = {
             let withoutMS = localStr.substring(0, localStr.indexOf('.'));
             return withoutMS;
         },
-        createTimelineEntry: function(filePath, entry, socialPost, file) {
+        isNewChat: function(filePath, isChat) {
+            let pathParts = filePath.split('/');
+            let uuid = pathParts[3];
+            if(this.knownChats.findIndex(v => v.chatUuid == uuid) == -1) {
+                return true;
+            } else {
+                return false;
+            }
+        },
+        createTimelineEntry: function(filePath, entry, socialPost, file, isChat) {
             var displayFilename = true;
             let info = " shared";
             let isMedia = entry== null && socialPost == null  && filePath.includes("/.posts/") && filePath.includes("/media/") ? true : false;
@@ -651,6 +680,9 @@ module.exports = {
             if (props.isDirectory) {
                 if (isSharedCalendar) {
                     info = info + " a calendar"; // - " + props.name;
+                    displayFilename = false;
+                } else if(isChat) {
+                    info = "invited you to a conversation";
                     displayFilename = false;
                 } else {
                     info = info + " the folder";
@@ -682,6 +714,7 @@ module.exports = {
                     status = "[edited]";
                 }
             }
+            let isNewChat = this.isNewChat(filePath, isChat);
             let item = {
                 sharer: sharer,
                 owner: owner,
@@ -702,7 +735,9 @@ module.exports = {
                 socialPost: socialPost,
                 indent: 1,
                 status: status,
-                isMedia: isMedia
+                isMedia: isMedia,
+                isChat: isChat,
+                isNewChat: isNewChat
             };
             return item;
         },
@@ -756,13 +791,13 @@ module.exports = {
             for(var j = 0; j < entries.length; j++) {
                 let indentedRow = entries[j];
                 let item = indentedRow.item;
-                let timelineEntry = this.createTimelineEntry(item.path, item.entry, item.socialPost, item.file);
+                let timelineEntry = this.createTimelineEntry(item.path, item.entry, item.socialPost, item.file, item.isChat);
                 timelineEntry.indent = indentedRow.indent;
                 allTimelineEntries.push(timelineEntry);
                 let mediaList = indentedRow.mediaList;
                 if (mediaList.length > 0) {
                     for(var k=0; k < mediaList.length; k++) {
-                        let mediaTimelineEntry = this.createTimelineEntry(mediaList[k].path, null, null, mediaList[k].file);
+                        let mediaTimelineEntry = this.createTimelineEntry(mediaList[k].path, null, null, mediaList[k].file, null);
                         mediaTimelineEntry.indent = indentedRow.indent;
                         allTimelineEntries.push(mediaTimelineEntry);
                     }
@@ -912,63 +947,49 @@ module.exports = {
             });
             return dedupedItems;
         },
+        extractChatOwner: function(chatUuid) {
+            let withoutPrefix = chatUuid.substring(5);//chat:
+            return withoutPrefix.substring(0,withoutPrefix.indexOf(":"));
+        },
+        filterOutOwnChats: function(allPairs) {
+            let remainingSharedItems = [];
+            for(var i = 0; i < allPairs.length; i++) {
+                let currentSharedItem = allPairs[i];
+                if (currentSharedItem.left.path.includes("/.messaging/")) {
+                    let pathParts = currentSharedItem.left.path.split('/');
+                    let uuid = pathParts[pathParts.length -2];
+                    let chatOwner = this.extractChatOwner(uuid);
+                    if(chatOwner != this.context.username) {
+                        remainingSharedItems.push(currentSharedItem);
+                    }
+                } else {
+                    remainingSharedItems.push(currentSharedItem);
+                }
+            }
+            return remainingSharedItems;
+        },
         buildTimeline: function(items) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
             this.context.getFiles(peergos.client.JsUtil.asList(items)).thenApply(function(pairs) {
                 let allPairs = pairs.toArray();
-                let messenger = new peergos.shared.messaging.Messenger(that.context);
-                messenger.listChats().thenApply(function(chats) {
-                    that.handleChats(messenger, chats.toArray(), allPairs).thenApply(function(remainingPairs) {
-                        that.loadFiles(remainingPairs).thenApply(function(sharedItems) {
-                            that.loadParentPosts(sharedItems).thenApply(function(parentPosts) {
-                                that.loadCommentPosts(sharedItems.concat(parentPosts)).thenApply(function(commentPosts) {
-                                    let sortedList = that.mergeAndSortPosts(sharedItems, parentPosts, commentPosts);
-                                    that.loadMediaPosts(sortedList).thenApply(function(mediaPosts) {
-                                        let entries = that.organiseEntries(sortedList, mediaPosts);
-                                        let allTimelineEntries = that.populateTimeline(entries);
-                                        future.complete(allTimelineEntries);
-                                    });
+                that.messenger.listChats().thenApply(function(chats) {
+                    that.knownChats = chats.toArray();
+                    let remainingPairs = that.filterOutOwnChats(allPairs);
+                    that.loadFiles(remainingPairs).thenApply(function(sharedItems) {
+                        that.loadParentPosts(sharedItems).thenApply(function(parentPosts) {
+                            that.loadCommentPosts(sharedItems.concat(parentPosts)).thenApply(function(commentPosts) {
+                                let sortedList = that.mergeAndSortPosts(sharedItems, parentPosts, commentPosts);
+                                that.loadMediaPosts(sortedList).thenApply(function(mediaPosts) {
+                                    let entries = that.organiseEntries(sortedList, mediaPosts);
+                                    let allTimelineEntries = that.populateTimeline(entries);
+                                    future.complete(allTimelineEntries);
                                 });
                             });
                         });
                     });
                 });
             });
-            return future;
-        },
-        reduceNewChats: function(pairs, index, future, messenger, remainingSharedItems) {
-            let that = this;
-            if (index == pairs.length) {
-                future.complete(remainingSharedItems);
-            } else {
-                let currentPair = pairs[index];
-                let sharedChatDir = currentPair.right;
-                messenger.cloneLocallyAndJoin(sharedChatDir).thenApply(res => {
-                    that.reduceNewChats(pairs, ++index, future, messenger, remainingSharedItems);
-                }).exceptionally(function(throwable) {
-                    that.showMessage(throwable.getMessage());
-                    that.reduceNewChats(pairs, ++index, future, messenger, remainingSharedItems);
-                });
-            }
-        },
-        handleChats: function(messenger, existingChats, allPairs) {
-            let remainingSharedItems = [];
-            let chatSharedItems = [];
-            for(var i = 0; i < allPairs.length; i++) {
-                let currentSharedItem = allPairs[i];
-                if (currentSharedItem.left.path.includes("/.messaging/")) {
-                    let pathParts = currentSharedItem.left.path.split('/');
-                    let uuid = pathParts[pathParts.length -2];
-                    if(existingChats.findIndex(v => v.chatUuid == uuid) == -1) {
-                        chatSharedItems.push(currentSharedItem);
-                    }
-                } else {
-                    remainingSharedItems.push(currentSharedItem);
-                }
-            }
-            let future = peergos.shared.util.Futures.incomplete();
-            this.reduceNewChats(chatSharedItems, 0, future, messenger, remainingSharedItems);
             return future;
         },
         refresh: function() {
