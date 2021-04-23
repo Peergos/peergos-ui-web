@@ -308,10 +308,12 @@ module.exports = {
             if (dateTime == "") {
                 return "";
             }
-            let date = new Date(dateTime.toString());
-            let localStr =  date.toISOString().replace('T',' ');
-            let withoutMS = localStr.substring(0, localStr.indexOf('.'));
-            return withoutMS;
+            let date = new Date(dateTime.toString() + "+00:00");//adding UTC TZ in ISO_OFFSET_DATE_TIME ie 2021-12-03T10:25:30+00:00
+            let formatted = date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate()
+                + ' ' + (date.getHours() < 10 ? '0' : '') + date.getHours()
+                + ':' + (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
+                + ':' + (date.getSeconds() < 10 ? '0' : '') + date.getSeconds();
+            return formatted;
         },
         getExistingConversationTitles: function() {
             let existingGroups = [];
