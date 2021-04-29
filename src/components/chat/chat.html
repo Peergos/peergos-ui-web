@@ -178,7 +178,7 @@
                                     <button id="emoji-chooser" class="chat-btn btn-success emoji-btn" type="button" @click="launchEmojiPicker()">
                                         <i class="fa fa-smile" aria-hidden="true"></i>
                                     </button>
-                                    <button :disabled="newMessageText.length == 0 || savingNewMsg" class="chat-btn btn-success send-new-message-btn" type="button" @click="sendMessage()">
+                                    <button :disabled="newMessageText.length == 0 || savingNewMsg" class="chat-btn btn-success send-new-message-btn" type="button" @click="send()">
                                         <i class="fa fa-paper-plane" aria-hidden="true"></i>
                                     </button>
                                     <input type="file" id="uploadInput" @change="addAttachment" style="display:none;" accept="audio/*,video/*,image/*" />
