@@ -3,6 +3,7 @@ module.exports = {
     data: function() {
         return {
             showSpinner: false,
+            spinnerMessage: '',
             conversations: [],
             messageThread: [],
             selectedConversationId: null,
@@ -289,19 +290,19 @@ module.exports = {
                 future.complete(parentMap);
             } else {
                 let replies = [];
-                messages.forEach(chatEnvelope => {
+                messages.forEach((chatEnvelope, idx) => {
                     let payload = chatEnvelope.payload;
                     let type = payload.type().toString();
                     if(type == 'ReplyTo') {
-                        replies.push(chatEnvelope);
+                        replies.push({envelope: chatEnvelope, index: chatController.startIndex + idx});
                     }
                 });
                 if (replies.length == 0) {
                     future.complete(parentMap);
                 }
-                replies.forEach(envelope => {
-                    let parentRef = envelope.payload.parent;
-                    chatController.getMessage(parentRef).thenApply(parentEnvelope => {
+                replies.forEach(reply => {
+                    let parentRef = reply.envelope.payload.parent;
+                    chatController.controller.getMessage(parentRef, reply.index).thenApply(parentEnvelope => {
                         parentMap.set(parentRef.toString(), parentEnvelope);
                         if(parentMap.size == replies.length) {
                             future.complete(parentMap);
@@ -320,7 +321,7 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 latestController.getMessages(startIndex, startIndex + 1000).thenApply(result => {
                     let messages = result.toArray();
-                    that.findParentMessages(latestController, messages).thenApply(parentMap => {
+                    that.findParentMessages(chatController, messages).thenApply(parentMap => {
                         chatController.startIndex += messages.length;
                         that.updateMessageThread(conversationId, messages, parentMap);
                         that.buildConversations();
@@ -390,6 +391,7 @@ module.exports = {
             let conversation = this.allConversations.get(conversationId);
             this.spinner(true);
             if (conversation == null) {
+                this.spinnerMessage = "creating new chat";
                 this.messenger.createChat().thenApply(function(controller){
                     let conversationId = controller.chatUuid;
                     that.allChatControllers.set(controller.chatUuid,
@@ -402,6 +404,7 @@ module.exports = {
                     that.allMessageThreads.set(conversationId, []);
                     that.changeTitle(conversationId, updatedGroupTitle).thenApply(function(res1) {
                         that.inviteNewParticipants(conversationId, updatedMembers).thenApply(function(res1) {
+                            that.spinnerMessage = "";
                             that.spinner(false);
                             that.refreshConversation(conversationId);
                         });
@@ -416,6 +419,7 @@ module.exports = {
                 conversation.participants = updatedMembers.slice();
                 that.inviteNewParticipants(conversationId, added).thenApply(function(res1) {
                     that.unInviteParticipants(conversationId, removed).thenApply(function(res2) {
+                        that.spinnerMessage = "";
                         that.spinner(false);
                         if (conversation.title != updatedGroupTitle) {
                             conversation.title = updatedGroupTitle;
@@ -546,38 +550,44 @@ module.exports = {
                 if (low < 0) low = low + Math.pow(2, 32);
                 return low + (props.sizeHigh() * Math.pow(2, 32));
         },
-        reduceNewInvitations: function(conversationId, updatedMembers, index, future) {
+        getPublicKeyHashes: function(usernames) {
             let that = this;
-            if (index == updatedMembers.length) {
-                future.complete(true);
-            } else {
-                let chatController = this.allChatControllers.get(conversationId);
-                let username = updatedMembers[index];
-                this.context.getPublicKeys(username).thenApply(pkOpt => {
-                    that.messenger.invite(chatController.controller, username, pkOpt.get().left).thenApply(updatedController => {
-                        chatController.controller = updatedController;
-                        that.reduceNewInvitations(conversationId, updatedMembers, ++index, future);
-                    });
+            const usernameToPKH = new Map();
+            let future = peergos.shared.util.Futures.incomplete();
+            usernames.forEach(username => {
+                that.context.getPublicKeys(username).thenApply(pkOpt => {
+                    usernameToPKH.set(username, pkOpt.get().left);
+                    if(usernameToPKH.size == usernames.length) {
+                        let pkhs = [];
+                        usernames.forEach(user => {
+                            pkhs.push(usernameToPKH.get(user));
+                        });
+                        future.complete(peergos.client.JsUtil.asList(pkhs));
+                    }
                 });
-            }
+            });
+            return future;
         },
         inviteNewParticipants: function(conversationId, updatedMembers) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
-            this.reduceNewInvitations(conversationId, updatedMembers, 0, future);
-
-            let future2 = peergos.shared.util.Futures.incomplete();
-            future.thenApply(done => {
-                if (updatedMembers.length > 0) {
-                    let text = "The following participant(s) have been added: " + updatedMembers.join(',');
-                    that.sendStatus(conversationId, text).thenApply(function(res) {
-                        future2.complete(true);
+            if (updatedMembers.length == 0) {
+                future.complete(true);
+            } else {
+                let chatController = this.allChatControllers.get(conversationId);
+                let usernames = peergos.client.JsUtil.asList(updatedMembers);
+                this.spinnerMessage = "adding participant(s) to chat";
+                this.getPublicKeyHashes(updatedMembers).thenApply(pkhList => {
+                    that.messenger.invite(chatController.controller, usernames, pkhList).thenApply(updatedController => {
+                        chatController.controller = updatedController;
+                        let text = "The following participant(s) have been added: " + updatedMembers.join(',');
+                        that.sendStatus(conversationId, text).thenApply(function(res) {
+                            future.complete(true);
+                        });
                     });
-                } else {
-                    future2.complete(true);
-                }
-            });
-            return future2;
+                });
+            }
+            return future;
         },
         reduceRemovingInvitations: function(conversationId, membersToRemove, index, future) {
             future.complete(true);
@@ -663,8 +673,8 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 updatedController.getMessages(startIndex, startIndex + 10000).thenApply(result => {
                     let messages = result.toArray();
-                    chatController.startIndex += messages.length;
-                    that.findParentMessages(updatedController, messages).thenApply(parentMap => {
+                    that.findParentMessages(chatController, messages).thenApply(parentMap => {
+                        chatController.startIndex += messages.length;
                         future.complete({conversationId: controller.chatUuid, messages: messages, parentMap: parentMap});
                     });
                 });

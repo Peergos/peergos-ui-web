@@ -48,7 +48,7 @@
                 :hideGalleryTitle="true"
                 :context="context">
         </gallery>
-        <spinner v-if="showSpinner"></spinner>
+        <spinner v-if="showSpinner" :message="spinnerMessage"></spinner>
         <div class="chat-container">
             <div class="chat-messaging">
                 <div class="chat-border">
