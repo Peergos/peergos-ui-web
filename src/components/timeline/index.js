@@ -165,8 +165,8 @@ module.exports = {
                 }
             }
         },
-        confirmDeletePost: function(deletePostFunction, cancelFunction) {
-            this.confirm_message='Are you sure you want to delete the comment?';
+        confirmDeletePost: function(message, deletePostFunction, cancelFunction) {
+            this.confirm_message= message;
             this.confirm_body='';
             this.confirm_consumer_cancel_func = cancelFunction;
             this.confirm_consumer_func = deletePostFunction;
@@ -174,7 +174,13 @@ module.exports = {
         },
         deletePost: function(entry) {
             let that = this;
-            this.confirmDeletePost(
+            var msg = 'Are you sure you want to delete the ';
+            if (entry.indent == 1) {
+                msg = msg + "post?";
+            } else {
+                msg = msg + "comment?";
+            }
+            this.confirmDeletePost(msg,
                 () => { that.showConfirm = false;
                     that.deleteSocialPost(entry);
                 },
@@ -645,6 +651,9 @@ module.exports = {
         },
         isNewChat: function(filePath, isChat) {
             let pathParts = filePath.split('/');
+            if (pathParts[2] != ".messaging") {
+                return false;
+            }
             let uuid = pathParts[3];
             if(this.knownChats.findIndex(v => v.chatUuid == uuid) == -1) {
                 return true;
@@ -682,7 +691,7 @@ module.exports = {
                     info = info + " a calendar"; // - " + props.name;
                     displayFilename = false;
                 } else if(isChat) {
-                    info = "invited you to a conversation";
+                    info = "invited you to a chat";
                     displayFilename = false;
                 } else {
                     info = info + " the folder";

@@ -109,7 +109,7 @@ module.exports = {
                         }).exceptionally(function(throwable) {
                             console.log('Error signing up: ' + throwable);
                             that.errorTitle = 'Error signing up'
-                                that.errorBody = throwable.getMessage();
+                                that.errorBody = throwable.detailMessage;
                             that.showError = true;
                             that.showSpinner = false;
                         });

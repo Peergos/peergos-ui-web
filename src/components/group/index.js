@@ -26,13 +26,14 @@ module.exports = {
     methods: {
         updateGroupMembership: function () {
             if (this.groupId == "" && this.displayedTitle == this.groupTitle) {
-                this.showMessage("Click on title to set group name");
-            } else {
-                if (this.groupId == "" && this.existingGroupMembers.length == 1 && this.displayedTitle == this.existingGroupMembers[0]) {
-                    this.updatedGroupMembership(this.groupId, "", this.existingGroupMembers.slice());
+                if (this.existingGroupMembers.length != 1) {
+                    this.showMessage("Click on title to set group name");
                 } else {
-                    this.updatedGroupMembership(this.groupId, this.displayedTitle, this.existingGroupMembers.slice());
+                    this.updatedGroupMembership(this.groupId,  this.existingGroupMembers[0], this.existingGroupMembers.slice());
+                    this.close();
                 }
+            } else {
+                this.updatedGroupMembership(this.groupId, this.displayedTitle, this.existingGroupMembers.slice());
                 this.close();
             }
         },
@@ -114,9 +115,6 @@ module.exports = {
                 that.errorBody = "";
                 that.showError = true;
                 return;
-            }
-            if(this.groupId == "" && this.displayedTitle == this.groupTitle && this.existingGroupMembers.length == 1) {
-                this.displayedTitle = this.existingGroupMembers[0];
             }
             that.resetTypeahead();
         },

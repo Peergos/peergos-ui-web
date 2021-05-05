@@ -11,6 +11,7 @@ module.exports = {
             allConversations: new Map(),
             allChatControllers: new Map(),
             allMessageThreads: new Map(),
+            allMessageHashThreads: new Map(),
             chatTitle: "",
             pageStartIndex : 0,
             savingNewMsg: false,
@@ -29,6 +30,7 @@ module.exports = {
             showEmbeddedGallery: false,
             filesToViewInGallery: [],
             replyToMessage: null,
+            editMessage: null,
             attachment: null,
             emojiChooserBtn: null,
             emojiPicker: null,
@@ -110,9 +112,27 @@ module.exports = {
         },
         deleteReply: function() {
             this.replyToMessage = null;
+            this.newMessageText = "";
         },
         reply: function(message) {
             this.replyToMessage = message;
+            this.editMessage = null;
+            this.focus();
+        },
+        deleteEdit: function() {
+            this.editMessage = null;
+            this.newMessageText = "";
+        },
+        edit: function(message) {
+            this.replyToMessage = null;
+            this.editMessage = message;
+            this.newMessageText = message.contents;
+            this.focus();
+        },
+        focus: function(message) {
+            Vue.nextTick(function() {
+                document.getElementById("message-input").focus();
+            });
         },
         profile: function(conversation) {
             this.displayProfile(conversation.participants[0], false);
@@ -202,9 +222,7 @@ module.exports = {
             });*/
         },
         displayTitle: function(conversation) {
-            let text = conversation.title.length > 0 ? this.truncateText(conversation.title, 15)
-                        : this.truncateText(this.formatParticipants(conversation.participants), 15)
-            return text;
+            return this.truncateText(conversation.title, 15);
         },
         filterConversations: function() {
             this.buildConversations();
@@ -218,33 +236,48 @@ module.exports = {
         },
         updateMessageThread: function (conversationId, chatMessages, parentMap) {
             let messageThread = this.allMessageThreads.get(conversationId);
+            let messageHashes = this.allMessageHashThreads.get(conversationId);
+            let chatController = this.allChatControllers.get(conversationId);
             for(var j = 0; j < chatMessages.length; j++) {
                 let chatEnvelope = chatMessages[j];
                 let payload = chatEnvelope.payload;
                 let type = payload.type().toString();
-                let chatController = this.allChatControllers.get(conversationId);
                 let author = chatController.controller.getAuthorUsername(chatEnvelope);
                 if (type == 'GroupState') {//type
                     if(payload.key == "title") {
-                        messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "Conversation name changed to: " + payload.value));
+                        messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "Chat name changed to " + payload.value));
                         let conversation = this.allConversations.get(conversationId);
                         conversation.title = payload.value;
-                    } else {
-                        messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, payload.value));
                     }
+                } else if(type == 'Invite') {
+                    let username = chatEnvelope.payload.username;
+                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "User " + author + " invited user " + username));
+                } else if(type == 'Join') {
+                    let username = chatEnvelope.payload.username;
+                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "User " + username + " joined the chat"));
                 } else if(type == 'Application') {
-                    messageThread.push(this.createMessage(author, chatEnvelope, chatEnvelope.payload.body.content, null, null, null));
+                    messageThread.push(this.createMessage(author, chatEnvelope, payload.body.content, null, null, null));
+                } else if(type == 'Edit') {
+                    let messageIndex = messageHashes.get(payload.priorVersion);
+                    let message = messageThread[messageIndex];
+                    message.contents = payload.content.body.content;
+                    message.edited = true;
+                } else if(type == 'Delete') {
+                    let messageIndex = messageHashes.get(payload.target);
+                    let message = messageThread[messageIndex];
+                    message.contents = "[Message Deleted]";
+                    message.deleted = true;
                 } else if(type == 'ReplyTo') {
-                    let parentRef = chatEnvelope.payload.parent;
+                    let parentRef = payload.parent;
                     let parentEnvelope = parentMap.get(parentRef.toString());
                     let parentType = parentEnvelope.payload.type().toString();
                     let parentContent = parentType == 'Application' ? parentEnvelope.payload.body.content : parentEnvelope.payload.content.body.content;
                     let parentAuthor = chatController.controller.getAuthorUsername(parentEnvelope);
                     let parentMessage = this.createMessage(parentAuthor, parentEnvelope, parentContent, null, null, null);
-                    messageThread.push(this.createMessage(author, chatEnvelope, chatEnvelope.payload.content.body.content, null, null, parentMessage));
+                    messageThread.push(this.createMessage(author, chatEnvelope, payload.content.body.content, null, null, parentMessage));
                 }
             }
-            this.allMessageThreads.set(conversationId, messageThread);
+            chatController.startIndex += chatMessages.length;
         },
         updateScrollPane: function(val) {
            Vue.nextTick(function() {
@@ -283,6 +316,33 @@ module.exports = {
                 });
             });
         },
+        generateMessageHashes: function(chatController, messages) {
+            let that = this;
+            let future = peergos.shared.util.Futures.incomplete();
+            let messageHashes = new Map();
+            if (messages.length == 0) {
+                future.complete(true);
+            } else {
+                messages.forEach((chatEnvelope, idx) => {
+                    chatController.controller.generateHash(chatEnvelope).thenApply(messageRef => {
+                        messageHashes.set(messageRef.toString(), chatController.startIndex + idx);
+                        if(messageHashes.size == messages.length) {
+                            let conversationId = chatController.controller.chatUuid;
+                            var existingMessageHashes = that.allMessageHashThreads.get(conversationId);
+                            if (existingMessageHashes == null) {
+                                existingMessageHashes = new Map();
+                                that.allMessageHashThreads.set(conversationId, existingMessageHashes);
+                            }
+                            for (let [key, value] of messageHashes.entries()) {
+                              existingMessageHashes.set(key, value);
+                            }
+                            future.complete(true);
+                        }
+                    });
+                });
+            }
+            return future;
+        },
         findParentMessages: function(chatController, messages) {
             const parentMap = new Map();
             let future = peergos.shared.util.Futures.incomplete();
@@ -302,7 +362,7 @@ module.exports = {
                 }
                 replies.forEach(reply => {
                     let parentRef = reply.envelope.payload.parent;
-                    chatController.controller.getMessage(parentRef, reply.index).thenApply(parentEnvelope => {
+                    chatController.controller.getMessageFromRef(parentRef, reply.index).thenApply(parentEnvelope => {
                         parentMap.set(parentRef.toString(), parentEnvelope);
                         if(parentMap.size == replies.length) {
                             future.complete(parentMap);
@@ -321,13 +381,14 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 latestController.getMessages(startIndex, startIndex + 1000).thenApply(result => {
                     let messages = result.toArray();
-                    that.findParentMessages(chatController, messages).thenApply(parentMap => {
-                        chatController.startIndex += messages.length;
-                        that.updateMessageThread(conversationId, messages, parentMap);
-                        that.buildConversations();
-                        that.buildMessageThread(conversationId);
-                        that.updateScrollPane();
-                        that.spinner(false);
+                    that.generateMessageHashes(chatController, messages).thenApply(done => {
+                        that.findParentMessages(chatController, messages).thenApply(parentMap => {
+                            that.updateMessageThread(conversationId, messages, parentMap);
+                            that.buildConversations();
+                            that.buildMessageThread(conversationId);
+                            that.updateScrollPane();
+                            that.spinner(false);
+                        });
                     });
                 });
             });
@@ -359,9 +420,7 @@ module.exports = {
         getExistingConversationTitles: function() {
             let existingGroups = [];
             this.conversations.forEach(conversation => {
-                if (conversation.title.length > 0) {
-                    existingGroups.push(conversation.title);
-                }
+                existingGroups.push(conversation.title);
             });
             return existingGroups;
         },
@@ -402,6 +461,7 @@ module.exports = {
                     }
                     that.allConversations.set(conversationId, item);
                     that.allMessageThreads.set(conversationId, []);
+
                     that.changeTitle(conversationId, updatedGroupTitle).thenApply(function(res1) {
                         that.inviteNewParticipants(conversationId, updatedMembers).thenApply(function(res1) {
                             that.spinnerMessage = "";
@@ -493,23 +553,15 @@ module.exports = {
             return peergos.client.PathUtils.directoryToPath(dirWithoutLeadingSlash.split('/'));
         },
         deleteChatMessage: function(message) {
-            console.log("deleteChatMessage not implemented!");
-            /*
             let that = this;
             this.spinner(true);
-            this.deleteFile(this.extractMessagePath(message)).thenApply(function(res){
-                that.deleteFile(message.mediaFilePath).thenApply(function(res2){
-                    that.spinner(false);
-                    if (res) {
-                        let currentMessageThread = that.allMessageThreads.get(that.selectedConversationId);
-                        let index = currentMessageThread.findIndex(v => v.id === message.id);
-                        if (index > -1) {
-                            currentMessageThread.splice(index, 1);
-                            that.refresh();
-                        }
-                    }
+            let chatController = this.allChatControllers.get(this.selectedConversationId);
+            chatController.controller.generateHash(message.envelope).thenApply(messageRef => {
+                let msg = new peergos.shared.messaging.messages.DeleteMessage(messageRef);
+                that.sendMessage(that.selectedConversationId, msg).thenApply(function(res) {
+                    that.refreshConversation(that.selectedConversationId);
                 });
-            });*/
+            });
         },
         deleteFile: function(filePathStr) {
             let that = this;
@@ -580,10 +632,7 @@ module.exports = {
                 this.getPublicKeyHashes(updatedMembers).thenApply(pkhList => {
                     that.messenger.invite(chatController.controller, usernames, pkhList).thenApply(updatedController => {
                         chatController.controller = updatedController;
-                        let text = "The following participant(s) have been added: " + updatedMembers.join(',');
-                        that.sendStatus(conversationId, text).thenApply(function(res) {
-                            future.complete(true);
-                        });
+                        future.complete(true);
                     });
                 });
             }
@@ -601,14 +650,7 @@ module.exports = {
 
             let future2 = peergos.shared.util.Futures.incomplete();
             future.thenApply(done => {
-                if (membersToRemove.length > 0) {
-                    let text = "The following participant(s) have been removed: " + membersToRemove.join(',');
-                    that.sendStatus(conversationId, text).thenApply(function(res) {
-                        future2.complete(true);
-                    });
-                } else {
-                    future2.complete(true);
-                }
+                future2.complete(true);
             });
             return future2;
         },
@@ -673,9 +715,10 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 updatedController.getMessages(startIndex, startIndex + 10000).thenApply(result => {
                     let messages = result.toArray();
-                    that.findParentMessages(chatController, messages).thenApply(parentMap => {
-                        chatController.startIndex += messages.length;
-                        future.complete({conversationId: controller.chatUuid, messages: messages, parentMap: parentMap});
+                    that.generateMessageHashes(chatController, messages).thenApply(done => {
+                        that.findParentMessages(chatController, messages).thenApply(parentMap => {
+                            future.complete({conversationId: controller.chatUuid, messages: messages, parentMap: parentMap});
+                        });
                     });
                 });
             }).exceptionally(function(throwable) {
@@ -740,14 +783,16 @@ module.exports = {
         buildMessageThread: function (conversationId) {
             if (conversationId != null) {
                 let conversation = this.allConversations.get(conversationId);
-                let participants = conversation.participants.length == 0 ? "" : " - " + this.truncateText(this.formatParticipants(conversation.participants), 20);
-                this.chatTitle = conversation.title.length > 0 ? this.truncateText(conversation.title, 20)
-                                + participants
-                                : "";
+                var title = this.truncateText(conversation.title, 20);
+                let participants = conversation.participants.length <= 1 ? "" : " - " + this.truncateText(this.formatParticipants(conversation.participants), 20);
+                if (participants.length > 0) {
+                    title = title + participants;
+                }
+                this.chatTitle = title;
                 this.selectedConversationId = conversationId;
                 let currentMessageThread = this.allMessageThreads.get(conversationId);
                 if (currentMessageThread != null) {
-                    this.messageThread = currentMessageThread;
+                    this.messageThread = currentMessageThread.slice();
                 } else {
                     this.messageThread = [];
                 }
@@ -776,17 +821,29 @@ module.exports = {
             }
             that.savingNewMsg = true;
             let attachment = this.attachment;
-            if (this.replyToMessage != null) {
+            if (this.editMessage != null) {
+                this.editExistingMessage(conversationId, this.editMessage.envelope, text, attachment).thenApply(function(result) {
+                    that.refreshConversation(conversationId);
+                });
+            } else if (this.replyToMessage != null) {
                 this.replyTo(conversationId, this.replyToMessage.envelope, text, attachment).thenApply(function(result) {
-                    console.log("reply sent");
                     that.refreshConversation(conversationId);
                 });
             } else {
                 this.newMessage(conversationId, text, attachment).thenApply(function(result) {
-                    console.log("message sent");
                     that.refreshConversation(conversationId);
                 });
             }
+        },
+        editExistingMessage: function(conversationId, editMessage, text, attachment) {
+            let future = peergos.shared.util.Futures.incomplete();
+            if (attachment != null) {
+                console.log("not implemented!");
+                future.complete(false);
+            } else {
+                this.sendEditMessage(conversationId, editMessage, text, null, null, null, future);
+            }
+            return future;
         },
         replyTo: function(conversationId, replyToMessage, text, attachment) {
             let future = peergos.shared.util.Futures.incomplete();
@@ -807,6 +864,18 @@ module.exports = {
                 this.sendNewMessage(conversationId, text, null, null, null, future);
             }
             return future;
+        },
+        sendEditMessage: function(conversationId, editMessage, text, mediaFile, mediaFilePath, parentMessage, future) {
+            let that = this;
+            this.spinner(true);
+            let msg = peergos.shared.messaging.messages.ApplicationMessage.text(text);
+            let chatController = this.allChatControllers.get(conversationId);
+            chatController.controller.generateHash(editMessage).thenApply(messageRef => {
+                let edit = new peergos.shared.messaging.messages.EditMessage(messageRef, msg);
+                that.sendMessage(conversationId, edit).thenApply(function(res) {
+                    future.complete(true);
+                });
+            });
         },
         sendReplyTo: function(conversationId, replyToMessage, text, mediaFile, mediaFilePath, parentMessage, future) {
             let that = this;
@@ -836,6 +905,7 @@ module.exports = {
                 that.newMessageText = "";
                 that.savingNewMsg = false;
                 that.replyToMessage = null;
+                that.editMessage = null;
                 that.attachment = null;
                 that.spinner(false);
                 future.complete(true);
@@ -862,21 +932,6 @@ module.exports = {
             });
             return future;
         },
-        sendStatus: function(conversationId, text) {
-            let future = peergos.shared.util.Futures.incomplete();
-            let that = this;
-            let chatController = this.allChatControllers.get(conversationId);
-            let controller = chatController.controller;
-            this.messenger.setGroupProperty(controller, "status", text).thenApply(function(updatedController) {
-                chatController.controller = updatedController;
-                future.complete(true);
-            }).exceptionally(function(throwable) {
-                that.showMessage(throwable.getMessage());
-                that.spinner(false);
-                future.complete(false);
-            });
-            return future;
-        },
         createMessage: function(author, messageEnvelope, content, mediaFile, mediaFilePath, parentMessage) {
             let timestamp = messageEnvelope.creationTime;
             let fileType = mediaFile == null ? "" : mediaFile.getFileProperties().getType();
@@ -884,12 +939,12 @@ module.exports = {
             let entry = {isStatusMsg: false, file: mediaFile, fileType: fileType,
                 sender: author, hasThumbnail: thumbnail.length > 0, thumbnail: thumbnail
                 , sendTime: timestamp.toString(), contents: content, mediaFilePath: mediaFilePath
-                , envelope: messageEnvelope, parentMessage: parentMessage, isDeleted: false};
+                , envelope: messageEnvelope, parentMessage: parentMessage, edited: false, deleted : false};
             return entry;
         },
         createStatusMessage: function(timestamp, message) {
             let entry = {isStatusMsg: true, sender: null, hasThumbnail: false,
-                sendTime: timestamp.toString(), contents: message, isDeleted: false};
+                sendTime: timestamp.toString(), contents: message};
             return entry;
         },
     }

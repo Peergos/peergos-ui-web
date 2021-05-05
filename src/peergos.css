@@ -1073,7 +1073,7 @@ h3 {word-wrap:break-word; white-space:normal;}
   font-size: 17px;
   height: 33px;
   position: absolute;
-  right: 40px;
+  right: 0px;
   top: 11px;
   width: 33px;
 }
@@ -1085,7 +1085,7 @@ h3 {word-wrap:break-word; white-space:normal;}
   font-size: 17px;
   height: 33px;
   position: absolute;
-  right: 0px;
+  right: 40px;
   top: 11px;
   width: 33px;
 }

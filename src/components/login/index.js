@@ -155,9 +155,8 @@ module.exports = {
                 that.showSpinner = false;
             }).exceptionally(function(throwable) {
                         console.log('Error logging in: '+throwable);
-                        var msg = throwable.getMessage();
                         that.errorTitle = 'Error logging-in'
-                        that.errorBody = throwable.getMessage();
+                        that.errorBody = throwable.detailMessage;
                         that.showSpinner = false;
                         that.showError = true;
                     });
