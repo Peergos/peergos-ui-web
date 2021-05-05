@@ -317,6 +317,9 @@ module.exports = {
                         conversationId = that.conversations[0].id;
                     }
                     that.buildMessageThread(conversationId);
+                    if (conversationId != null) {
+                        that.updateScrollPane();
+                    }
                     that.spinner(false);
                 });
             });
