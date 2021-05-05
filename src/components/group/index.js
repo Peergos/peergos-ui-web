@@ -26,12 +26,7 @@ module.exports = {
     methods: {
         updateGroupMembership: function () {
             if (this.groupId == "" && this.displayedTitle == this.groupTitle) {
-                if (this.existingGroupMembers.length != 1) {
-                    this.showMessage("Click on title to set group name");
-                } else {
-                    this.updatedGroupMembership(this.groupId,  this.existingGroupMembers[0], this.existingGroupMembers.slice());
-                    this.close();
-                }
+                this.showMessage("Click on title to set group name");
             } else {
                 this.updatedGroupMembership(this.groupId, this.displayedTitle, this.existingGroupMembers.slice());
                 this.close();

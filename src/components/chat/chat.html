@@ -114,7 +114,7 @@
                                     </div>
                                 </div>
                                 <div v-if="message.parentMessage != null">
-                                    <div v-if="!message.isStatusMsg && message.sender != context.username">
+                                    <div v-if="!message.isStatusMsg && message.sender != context.username" style="margin-top: 10px;">
                                         <div class="parent-message">
                                             <div v-bind:class="[message.parentMessage.sender == context.username ? 'sent-message-container' : 'received-message-container']">
                                                 <div v-bind:class="['parent-message', message.parentMessage.sender == context.username ? 'sent-message' : 'received-message']">
@@ -134,7 +134,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-if="!message.isStatusMsg && message.sender == context.username">
+                                    <div v-if="!message.isStatusMsg && message.sender == context.username" style="margin-top: 10px;">
                                         <div class="parent-message">
                                             <div v-bind:class="[message.parentMessage.sender == context.username ? 'sent-message-container' : 'received-message-container']">
                                                 <div v-bind:class="['parent-message', message.parentMessage.sender == context.username ? 'sent-message' : 'received-message']">
