@@ -11,7 +11,7 @@ module.exports = {
             allConversations: new Map(),
             allChatControllers: new Map(),
             allMessageThreads: new Map(),
-            allMessageHashThreads: new Map(),
+            allThreadsHashToIndex: new Map(),
             chatTitle: "",
             pageStartIndex : 0,
             savingNewMsg: false,
@@ -229,17 +229,21 @@ module.exports = {
         },
         updateMessageThreads: function (allChats) {
             for(var i = 0; i < allChats.length; i++) {
-                let chatMessages = allChats[i].messages;
-                let parentMap = allChats[i].parentMap;
-                this.updateMessageThread(allChats[i].conversationId, chatMessages, parentMap);
+                let messagePairs = allChats[i].messagePairs;
+                this.updateMessageThread(allChats[i].conversationId, messagePairs);
             }
         },
-        updateMessageThread: function (conversationId, chatMessages, parentMap) {
+        updateMessageThread: function (conversationId, messagePairs) {
             let messageThread = this.allMessageThreads.get(conversationId);
-            let messageHashes = this.allMessageHashThreads.get(conversationId);
+            var hashToIndex = this.allThreadsHashToIndex.get(conversationId);
+            if (hashToIndex == null) {
+                hashToIndex = new Map();
+                this.allThreadsHashToIndex.set(conversationId, hashToIndex);
+            }
             let chatController = this.allChatControllers.get(conversationId);
-            for(var j = 0; j < chatMessages.length; j++) {
-                let chatEnvelope = chatMessages[j];
+            for(var j = 0; j < messagePairs.length; j++) {
+                let chatEnvelope = messagePairs[j].message;
+                let messageHash = messagePairs[j].hash;
                 let payload = chatEnvelope.payload;
                 let type = payload.type().toString();
                 let author = chatController.controller.getAuthorUsername(chatEnvelope);
@@ -256,28 +260,29 @@ module.exports = {
                     let username = chatEnvelope.payload.username;
                     messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "User " + username + " joined the chat"));
                 } else if(type == 'Application') {
+                    hashToIndex.set(messageHash, messageThread.length);
                     messageThread.push(this.createMessage(author, chatEnvelope, payload.body.content, null, null, null));
                 } else if(type == 'Edit') {
-                    let messageIndex = messageHashes.get(payload.priorVersion);
+                    let messageIndex = hashToIndex.get(payload.priorVersion.toString());
                     let message = messageThread[messageIndex];
                     message.contents = payload.content.body.content;
                     message.edited = true;
                 } else if(type == 'Delete') {
-                    let messageIndex = messageHashes.get(payload.target);
+                    let messageIndex = hashToIndex.get(payload.target.toString());
                     let message = messageThread[messageIndex];
                     message.contents = "[Message Deleted]";
                     message.deleted = true;
                 } else if(type == 'ReplyTo') {
                     let parentRef = payload.parent;
-                    let parentEnvelope = parentMap.get(parentRef.toString());
-                    let parentType = parentEnvelope.payload.type().toString();
-                    let parentContent = parentType == 'Application' ? parentEnvelope.payload.body.content : parentEnvelope.payload.content.body.content;
+                    let messageIndex = hashToIndex.get(parentRef.toString());
+                    let parentEnvelope = messageThread[messageIndex].envelope;
+                    let parentContent = messageThread[messageIndex].contents;
                     let parentAuthor = chatController.controller.getAuthorUsername(parentEnvelope);
                     let parentMessage = this.createMessage(parentAuthor, parentEnvelope, parentContent, null, null, null);
+                    hashToIndex.set(messageHash, messageThread.length);
                     messageThread.push(this.createMessage(author, chatEnvelope, payload.content.body.content, null, null, parentMessage));
                 }
             }
-            chatController.startIndex += chatMessages.length;
         },
         updateScrollPane: function(val) {
            Vue.nextTick(function() {
@@ -319,53 +324,15 @@ module.exports = {
         generateMessageHashes: function(chatController, messages) {
             let that = this;
             let future = peergos.shared.util.Futures.incomplete();
-            let messageHashes = new Map();
+            let messagePairs = [];
             if (messages.length == 0) {
-                future.complete(true);
+                future.complete(messagePairs);
             } else {
-                messages.forEach((chatEnvelope, idx) => {
-                    chatController.controller.generateHash(chatEnvelope).thenApply(messageRef => {
-                        messageHashes.set(messageRef.toString(), chatController.startIndex + idx);
-                        if(messageHashes.size == messages.length) {
-                            let conversationId = chatController.controller.chatUuid;
-                            var existingMessageHashes = that.allMessageHashThreads.get(conversationId);
-                            if (existingMessageHashes == null) {
-                                existingMessageHashes = new Map();
-                                that.allMessageHashThreads.set(conversationId, existingMessageHashes);
-                            }
-                            for (let [key, value] of messageHashes.entries()) {
-                              existingMessageHashes.set(key, value);
-                            }
-                            future.complete(true);
-                        }
-                    });
-                });
-            }
-            return future;
-        },
-        findParentMessages: function(chatController, messages) {
-            const parentMap = new Map();
-            let future = peergos.shared.util.Futures.incomplete();
-            if (messages.length == 0) {
-                future.complete(parentMap);
-            } else {
-                let replies = [];
-                messages.forEach((chatEnvelope, idx) => {
-                    let payload = chatEnvelope.payload;
-                    let type = payload.type().toString();
-                    if(type == 'ReplyTo') {
-                        replies.push({envelope: chatEnvelope, index: chatController.startIndex + idx});
-                    }
-                });
-                if (replies.length == 0) {
-                    future.complete(parentMap);
-                }
-                replies.forEach(reply => {
-                    let parentRef = reply.envelope.payload.parent;
-                    chatController.controller.getMessageFromRef(parentRef, reply.index).thenApply(parentEnvelope => {
-                        parentMap.set(parentRef.toString(), parentEnvelope);
-                        if(parentMap.size == replies.length) {
-                            future.complete(parentMap);
+                messages.forEach(message => {
+                    chatController.controller.generateHash(message).thenApply(messageRef => {
+                        messagePairs.push({message: message, hash: messageRef.toString()});
+                        if(messagePairs.length == messages.length) {
+                            future.complete(messagePairs);
                         }
                     });
                 });
@@ -381,14 +348,13 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 latestController.getMessages(startIndex, startIndex + 1000).thenApply(result => {
                     let messages = result.toArray();
-                    that.generateMessageHashes(chatController, messages).thenApply(done => {
-                        that.findParentMessages(chatController, messages).thenApply(parentMap => {
-                            that.updateMessageThread(conversationId, messages, parentMap);
-                            that.buildConversations();
-                            that.buildMessageThread(conversationId);
-                            that.updateScrollPane();
-                            that.spinner(false);
-                        });
+                    chatController.startIndex += messages.length;
+                    that.generateMessageHashes(chatController, messages).thenApply(messagePairs => {
+                        that.updateMessageThread(conversationId, messagePairs);
+                        that.buildConversations();
+                        that.buildMessageThread(conversationId);
+                        that.updateScrollPane();
+                        that.spinner(false);
                     });
                 });
             });
@@ -715,10 +681,9 @@ module.exports = {
                 let startIndex = chatController.startIndex;
                 updatedController.getMessages(startIndex, startIndex + 10000).thenApply(result => {
                     let messages = result.toArray();
-                    that.generateMessageHashes(chatController, messages).thenApply(done => {
-                        that.findParentMessages(chatController, messages).thenApply(parentMap => {
-                            future.complete({conversationId: controller.chatUuid, messages: messages, parentMap: parentMap});
-                        });
+                    chatController.startIndex += messages.length;
+                    that.generateMessageHashes(chatController, messages).thenApply(messagePairs => {
+                        future.complete({conversationId: controller.chatUuid, messagePairs: messagePairs});
                     });
                 });
             }).exceptionally(function(throwable) {
