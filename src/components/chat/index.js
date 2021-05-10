@@ -58,7 +58,7 @@ module.exports = {
             	zIndex: 2000
             });
             emojiPicker.on('emoji', emoji => {
-                //that.newMessageText += emoji;
+                that.newMessageText += emoji;
             });
             that.emojiPicker = emojiPicker;
         });
@@ -117,7 +117,6 @@ module.exports = {
             let that = this;
             if (index < items.length) {
                 let item = items[index];
-                //todo should not be using id!
                 peergos.shared.user.ProfilePaths.getProfilePhoto(item.participants[0], this.context).thenApply(result => {
                     if (result.ref != null) {
                         Vue.nextTick(function() {
@@ -140,7 +139,7 @@ module.exports = {
             Vue.nextTick(func);
         },
         loadConversationIcons: function(items) {
-            this.reduceLoadAllConversationIconsAsync(0, items);
+            //todo this.reduceLoadAllConversationIconsAsync(0, items);
         },
         launchEmojiPicker: function() {
             this.emojiPicker.togglePicker(this.emojiChooserBtn);
@@ -820,17 +819,6 @@ module.exports = {
                 this.messageThread = [];
             }
         },
-        /*
-        //https://stackoverflow.com/questions/59918250/how-to-replace-all-emoji-in-string-to-unicode-js/59918364#59918364
-        encodeEmojiInText: function(text) {
-            const rex = /[\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}\u{1f1e6}-\u{1f1ff}\u{1f191}-\u{1f251}\u{1f004}\u{1f0cf}\u{1f170}-\u{1f171}\u{1f17e}-\u{1f17f}\u{1f18e}\u{3030}\u{2b50}\u{2b55}\u{2934}-\u{2935}\u{2b05}-\u{2b07}\u{2b1b}-\u{2b1c}\u{3297}\u{3299}\u{303d}\u{00a9}\u{00ae}\u{2122}\u{23f3}\u{24c2}\u{23e9}-\u{23ef}\u{25b6}\u{23f8}-\u{23fa}]/ug;
-            return text.replace(rex, match => `[e-${match.codePointAt(0).toString(16)}]`);
-        },
-        decodeEmojiInText: function(text) {
-            return text.replace(/\[e-([0-9a-fA-F]+)\]/g, (match, hex) =>
-                String.fromCodePoint(Number.parseInt(hex, 16))
-            );
-        },*/
         send: function() {
             let that = this;
             let text = this.newMessageText;
@@ -841,6 +829,9 @@ module.exports = {
             that.savingNewMsg = true;
             let attachment = this.attachment;
             if (this.editMessage != null) {
+                if (this.editMessage.sender != this.context.username) {
+                    return;
+                }
                 this.editExistingMessage(conversationId, this.editMessage.envelope, text, attachment).thenApply(function(result) {
                     that.refreshConversation(conversationId);
                 });
