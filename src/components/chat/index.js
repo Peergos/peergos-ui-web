@@ -802,10 +802,8 @@ module.exports = {
             if (conversationId != null) {
                 let conversation = this.allConversations.get(conversationId);
                 var title = this.truncateText(conversation.title, 20);
-                let participants = conversation.participants.length <= 1 ? "" : " - " + this.truncateText(this.formatParticipants(conversation.participants), 20);
-                if (participants.length > 0) {
-                    title = title + participants;
-                }
+                let participants = " - " + this.truncateText(this.formatParticipants(conversation.participants), 20);
+                title = title + participants;
                 this.chatTitle = title;
                 this.selectedConversationId = conversationId;
                 let currentMessageThread = this.allMessageThreads.get(conversationId);
