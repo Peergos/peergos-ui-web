@@ -391,10 +391,7 @@ module.exports = {
             let chatController = this.allChatControllers.get(conversationId);
             that.messenger.mergeAllUpdates(chatController.controller, this.socialState).thenApply(latestController => {
                 chatController.controller = latestController;
-                let startIndex = chatController.startIndex;
-                latestController.getMessages(startIndex, startIndex + 1000).thenApply(result => {
-                    let messages = result.toArray();
-                    chatController.startIndex += messages.length;
+                that.getAllMessages(chatController).thenApply(messages => {
                     that.generateMessageHashes(chatController, messages).thenApply(messagePairs => {
                         that.updateMessageThread(conversationId, messagePairs);
                         that.buildConversations();
@@ -404,6 +401,24 @@ module.exports = {
                     });
                 });
             });
+        },
+        reduceGetAllMessages: function(chatController, messages, future) {
+            let that = this;
+            let startIndex = chatController.startIndex;
+            chatController.controller.getMessages(startIndex, startIndex + 1000).thenApply(result => {
+                let newMessages = result.toArray();
+                chatController.startIndex += newMessages.length;
+                if (newMessages.length < 1000) {
+                    future.complete(messages.concat(newMessages));
+                } else {
+                    that.reduceGetAllMessages(chatController, messages.concat(newMessages), future);
+                }
+            });
+        },
+        getAllMessages: function(chatController) {
+            let future = peergos.shared.util.Futures.incomplete();
+            this.reduceGetAllMessages(chatController, [], future);
+            return future;
         },
         close: function () {
             if (this.emojiPicker != null) {
@@ -720,11 +735,7 @@ module.exports = {
                 if (participants.length == 1) {
                     conversation.profileImageNA = false;
                 }
-                //todo paging!
-                let startIndex = chatController.startIndex;
-                updatedController.getMessages(startIndex, startIndex + 10000).thenApply(result => {
-                    let messages = result.toArray();
-                    chatController.startIndex += messages.length;
+                that.getAllMessages(chatController).thenApply(messages => {
                     that.generateMessageHashes(chatController, messages).thenApply(messagePairs => {
                         future.complete({conversationId: controller.chatUuid, messagePairs: messagePairs});
                     });
