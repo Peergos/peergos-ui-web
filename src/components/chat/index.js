@@ -297,23 +297,27 @@ module.exports = {
                     }
                 } else if(type == 'Invite') {
                     let username = chatEnvelope.payload.username;
-                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "User " + author + " invited user " + username));
+                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, author + " invited " + username));
                 } else if(type == 'Join') {
                     let username = chatEnvelope.payload.username;
-                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, "User " + username + " joined the chat"));
+                    messageThread.push(this.createStatusMessage(chatEnvelope.creationTime, username + " joined the chat"));
                 } else if(type == 'Application') {
                     hashToIndex.set(messageHash, messageThread.length);
                     messageThread.push(this.createMessage(author, chatEnvelope, payload.body.content, null, null, null));
                 } else if(type == 'Edit') {
                     let messageIndex = hashToIndex.get(payload.priorVersion.toString());
                     let message = messageThread[messageIndex];
-                    message.contents = payload.content.body.content;
-                    message.edited = true;
+                    if (author == message.sender) {
+                        message.contents = payload.content.body.content;
+                        message.edited = true;
+                    }
                 } else if(type == 'Delete') {
                     let messageIndex = hashToIndex.get(payload.target.toString());
                     let message = messageThread[messageIndex];
-                    message.contents = "[Message Deleted]";
-                    message.deleted = true;
+                    if (author == message.sender) {
+                        message.contents = "[Message Deleted]";
+                        message.deleted = true;
+                    }
                 } else if(type == 'ReplyTo') {
                     let parentRef = payload.parent;
                     let messageIndex = hashToIndex.get(parentRef.toString());
