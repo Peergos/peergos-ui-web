@@ -1,7 +1,7 @@
 <transition name="modal">
 
 <div class="modal-mask-app" @click="close" style="position:absolute;">
-    <div class="modal-container" style="background-color: #fff;width:100%;" @click.stop >
+    <div class="modal-container" style="background-color: #fff;width:100%;height: 100%;" @click.stop >
         <span @click="close" class="close">&times;</span>
         <div class="header">
             <h1 v-if="chatTitle.length == 0" >&nbsp;</h1>
@@ -50,9 +50,14 @@
         </gallery>
         <spinner v-if="showSpinner" :message="spinnerMessage"></spinner>
         <div class="chat-container">
+            <div id="chat-back-button" style="display:none;">
+                <div>
+                    <a @click="closeConversation()"><i class="fa fa-arrow-left chat-back-button"></i></a>
+                </div>
+            </div>
             <div class="chat-messaging">
                 <div class="chat-border">
-                    <div class="chat-left-panel">
+                    <div id="chat-left-panel" class="chat-left-panel">
                         <div class="chat-actions">
                             <div class="chat-action-heading">
                                 <h4>
@@ -183,7 +188,7 @@
                         <div class="new-message-container">
                             <div class="new-message">
                                 <span>
-                                    <input id='message-input' type="text" v-model="newMessageText" :maxlength="100"  v-on:keyup.enter="sendMessage()" placeholder="Type a message">
+                                    <input id='message-input' type="text" v-model="newMessageText" :maxlength="100"  v-on:keyup.enter="send()" placeholder="Type a message">
                                     <button id="emoji-chooser" class="chat-btn btn-success emoji-btn" type="button" @click="launchEmojiPicker()">
                                         <i class="fa fa-smile" aria-hidden="true"></i>
                                     </button>

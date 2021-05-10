@@ -35,6 +35,7 @@ module.exports = {
             emojiChooserBtn: null,
             emojiPicker: null,
             messenger: null,
+            displayingMessages: false
         }
     },
     props: ['context', 'closeChatViewer', 'friendnames', 'socialFeed', 'socialState', 'getFileIconFromFileAndType', 'displayProfile'],
@@ -47,6 +48,9 @@ module.exports = {
             element.addEventListener('keyup', function() {
                 that.filterConversations();
             });
+
+            window.addEventListener("resize", that.resizeHandler);
+            that.resizeHandler();
             let emojiChooserBtn = document.getElementById('emoji-chooser');
             that.emojiChooserBtn = emojiChooserBtn;
             const emojiPicker = new EmojiButton({
@@ -60,6 +64,45 @@ module.exports = {
         });
     },
     methods: {
+        resizeHandler: function() {
+            var left = document.getElementById("chat-left-panel");
+            var right = document.getElementById("dnd-chat");
+            let closeConversationEl = document.getElementById('chat-back-button');
+            if (this.displayingMessages) {
+                left.classList.remove("chat-full-width");
+                right.classList.remove("chat-hide");
+                if(window.innerWidth >= 900) {
+                    left.classList.remove("chat-hide");
+                    right.classList.remove("chat-full-width");
+                    closeConversationEl.style.display = 'none';
+                } else if(window.innerWidth <= 900) {
+                    left.classList.add("chat-hide");
+                    right.classList.add("chat-full-width");
+                    closeConversationEl.style.display = '';
+                }
+            } else {
+                right.classList.remove("chat-full-width");
+                left.classList.remove("chat-hide");
+                closeConversationEl.style.display = 'none';
+                if(window.innerWidth >= 900) {
+                    left.classList.remove("chat-full-width");
+                    right.classList.remove("chat-hide");
+                } else if(window.innerWidth <= 900) {
+                    left.classList.add("chat-full-width");
+                    right.classList.add("chat-hide");
+                }
+            }
+        },
+        closeConversation: function (conversation) {
+            this.displayingMessages = false;
+            this.resizeHandler();
+        },
+        selectConversation: function (conversation) {
+            this.displayingMessages = true;
+            this.resizeHandler();
+            this.buildMessageThread(conversation.id);
+            this.updateScrollPane();
+        },
         toBase64Image: function(data) {
             var str = "";
             for (let i = 0; i < data.length; i++) {
@@ -559,9 +602,6 @@ module.exports = {
                 });
             }
             return future;
-        },
-        selectConversation: function (conversation) {
-            this.buildMessageThread(conversation.id);
         },
         isConversationSelected: function (conversation) {
             return this.selectedConversationId == conversation.id;
