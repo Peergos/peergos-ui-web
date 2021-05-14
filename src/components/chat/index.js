@@ -321,10 +321,7 @@ module.exports = {
                 } else if(type == 'ReplyTo') {
                     let parentRef = payload.parent;
                     let messageIndex = hashToIndex.get(parentRef.toString());
-                    let parentEnvelope = messageThread[messageIndex].envelope;
-                    let parentContent = messageThread[messageIndex].contents;
-                    let parentAuthor = chatController.controller.getAuthorUsername(parentEnvelope);
-                    let parentMessage = this.createMessage(parentAuthor, parentEnvelope, parentContent, null, null, null);
+                    let parentMessage = messageThread[messageIndex];
                     hashToIndex.set(messageHash, messageThread.length);
                     messageThread.push(this.createMessage(author, chatEnvelope, payload.content.body.content, null, null, parentMessage));
                 }
@@ -431,6 +428,7 @@ module.exports = {
                     //just means it is not open
                 }
             }
+            window.removeEventListener("resize", this.resizeHandler);
             this.closeChatViewer();
         },
         truncateText: function(text, length) {
