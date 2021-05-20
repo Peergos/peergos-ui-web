@@ -53,13 +53,18 @@
                 <span data-toggle="tooltip" data-placement="bottom" title="Social" class="fa fa-user-plus" style="cursor: pointer;"/>
                 <label class="app-icon-title">Social<span id="pendingSpan" class="pending-badge" v-if="social != null && social.pending.length > 0">{{ social.pending.length }}</span></label>
              </span>
-
         </a>
         <a @click="showTour" class="app-grid-item">
             <span class="app-icon">
                 <span data-toggle="tooltip" data-placement="bottom" title="Tour" class="fas fa-road"/>
                 <label class="app-icon-title">Tour</label>
             </span>
+        </a>
+        <a v-if="isEmailAvailable" @click="showEmail" class="app-grid-item">
+             <span class="app-icon">
+                <span data-toggle="tooltip" data-placement="bottom" title="Email" class="fa fa-envelope" style="cursor: pointer;"/>
+                <label class="app-icon-title">Email</label>
+             </span>
         </a>
     </div>
 </div>

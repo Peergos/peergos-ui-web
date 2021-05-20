@@ -29,7 +29,7 @@ module.exports = {
             choice_options: []
         }
     },
-    props: ['context', 'messages', 'importFile', 'importCalendarPath', 'owner', 'shareWith', 'loadCalendarAsGuest'],
+    props: ['context', 'messages', 'importFile', 'importCalendarPath', 'owner', 'shareWith', 'loadCalendarAsGuest', 'confirmImport', 'emailCalendarEvent'],
     created: function() {
         let that = this;
         this.displaySpinner();
@@ -90,6 +90,8 @@ module.exports = {
                     that.loadAdditional(calendar, e.data.year, e.data.month, 'loadAdditional');
                 } else if(e.data.type=="downloadEvent") {
                     that.downloadEvent(calendar, e.data.title, e.data.event);
+                } else if(e.data.type=="emailEvent") {
+                    that.emailEvent(e.data.title, e.data.event);
                 } else if(e.data.type=="shareCalendarEvent") {
                     that.shareCalendarEvent(calendar, e.data.calendarName, e.data.id, e.data.year, e.data.month, e.data.isRecurring);
                 } else if (e.data.action == 'requestRenameCalendar') {
@@ -260,10 +262,11 @@ module.exports = {
     },
     importICSFile: function() {
         let that = this;
-
-        that.postMessage({type: 'importICSFile', contents: that.importFile,
-            isSharedWithUs: that.owner != that.context.username, loadCalendarAsGuest: that.loadCalendarAsGuest,
-            username: that.context.username });
+        setTimeout(function() {
+            that.postMessage({type: 'importICSFile', contents: that.importFile,
+                isSharedWithUs: that.owner != that.context.username, loadCalendarAsGuest: that.loadCalendarAsGuest,
+                username: that.context.username, confirmImport: that.confirmImport });
+        }, 1000);
     },
     loadAdditional: function(calendar, year, month, messageType) {
         let that = this;
@@ -347,6 +350,7 @@ module.exports = {
         let that = this;
         let yearMonth = year * 12 + (month-1);
         setTimeout(function(){
+            that.spinnerMessage = "";
             let calendars = [];
             for(var i=0;i < that.calendarProperties.calendars.length;i++) {
                 let calendar = that.calendarProperties.calendars[i];
@@ -622,6 +626,7 @@ module.exports = {
             let dirStr = currentCalendar.directory + "/recurring";
             let directoryPath = peergos.client.PathUtils.directoryToPath(dirStr.split('/'));
             calendar.dirInternal(directoryPath, currentCalendar.owner).thenApply(filenames => {
+                that.spinnerMessage = "Loading recurring calendar events from: " + currentCalendar.name;
                 that.getEventsForMonth(calendar, currentCalendar.name, currentCalendar.owner, dirStr, filenames.toArray([])).thenApply(res => {
                     accumulator.push(res);
                     if (accumulator.length == that.calendarProperties.calendars.length) {
@@ -643,6 +648,7 @@ module.exports = {
             let dirStr = currentCalendar.directory + "/" + year + "/" + month;
             let directoryPath = peergos.client.PathUtils.directoryToPath(dirStr.split('/'));
             calendar.dirInternal(directoryPath, currentCalendar.owner).thenApply(filenames => {
+                that.spinnerMessage = "Loading calendar events from: " + currentCalendar.name + " for " + year + "-" + month;
                 that.getEventsForMonth(calendar, currentCalendar.name, currentCalendar.owner, dirStr, filenames.toArray([])).thenApply(res => {
                     accumulator.push(res);
                     if (accumulator.length == that.calendarProperties.calendars.length) {
@@ -735,6 +741,11 @@ module.exports = {
         link.download = 'event - ' + title + '.ics';
         link.click();
         this.removeSpinner();
+    },
+    emailEvent: function(title, event) {
+        console.log("email event");
+        this.$emit("hide-calendar");
+        this.emailCalendarEvent(title, event);
     },
     shareCalendarEvent: function(calendar, calendarName, id, year, month, isRecurring) {
         let calendarDirectory = this.findCalendarDirectory(calendarName);

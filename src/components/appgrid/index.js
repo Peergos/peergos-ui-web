@@ -3,7 +3,7 @@ module.exports = {
     data: function() {
         return {};
     },
-    props: ["context", "social", "canUpgrade"],
+    props: ["context", "social", "canUpgrade", "isEmailAvailable"],
     created: function() {
     },
     methods: {
@@ -36,6 +36,9 @@ module.exports = {
         },
         showUpgrade: function() {
             this.$emit("upgrade");
+        },
+        showEmail: function() {
+            this.$emit("email");
         }
     },
 };

@@ -27,6 +27,7 @@ module.exports = {
 	    quotaBytes: 0,
 	    usageBytes: 0,
 	    isAdmin: false,
+            showEmail:false,
             showAdmin:false,
             showAppgrid: false,
             showGallery: false,
@@ -101,7 +102,10 @@ module.exports = {
             showError:false,
             showSpinner: true,
             spinnerMessage: '',
-            onUpdateCompletion: [] // methods to invoke when current dir is next refreshed
+            onUpdateCompletion: [], // methods to invoke when current dir is next refreshed
+            icalEventTitle: '',
+            icalEvent: '',
+            isEmailAvailable: false
         };
     },
     props: ["context", "newsignup", "initPath", "openFile", "initiateDownload"],
@@ -272,7 +276,7 @@ module.exports = {
 	    return Math.round(x * 100)/100;
 	},
 
-        convertBytesToHumanReadable: function(bytesAsString) {
+    convertBytesToHumanReadable: function(bytesAsString) {
         let bytes = Number(bytesAsString);
 	    if (bytes < 1024)
 		return bytes + " Bytes";
@@ -382,6 +386,11 @@ module.exports = {
             this.updateHistory("filesystem", this.getPath(), "");
 	    this.forceSharedRefreshWithUpdate++;
 	},
+	closeEmail: function() {
+        this.icalEventTitle = '';
+        this.icalEvent = '';
+        this.showEmail = false;
+    },
     navigateToAction: function(directory) {
         let newPath = directory.startsWith("/") ? directory.substring(1).split('/') : directory.split('/');
         let currentPath = this.path;
@@ -529,7 +538,9 @@ module.exports = {
 
 		    var pendingOutgoingUsernames = [];
 		    socialState.pendingOutgoing.toArray([]).map(u => pendingOutgoingUsernames.push(u));
-
+            if(friendNames.includes('bridge')) {
+                that.isEmailAvailable = true;
+            }
 		    that.social = {
 		                pendingOutgoing: pendingOutgoingUsernames,
                         pending: socialState.pendingIncoming.toArray([]),
@@ -1335,6 +1346,16 @@ module.exports = {
 	    });
         },
 
+        showEmailView: function() {
+            this.availableUsernames = this.friendnames;
+            this.showEmail = true;
+        },
+        emailCalendarEvent: function(icalEventTitle, icalEvent) {
+            this.availableUsernames = this.friendnames;
+            this.icalEventTitle = icalEventTitle;
+            this.icalEvent = icalEvent;
+            this.showEmail = true;
+        },
         showSocialView: function(name) {
             this.showSocial = true;
             this.externalChange++;
@@ -1626,15 +1647,18 @@ module.exports = {
                     var data = convertToByteArray(new Int8Array(size));
                     return reader.readIntoArray(data, 0, data.length)
                         .thenApply(function(read){
-                            that.importFile = new TextDecoder().decode(data);
-                            that.importCalendarPath = null;
-                            that.owner = file.getOwnerName();
-                            that.loadCalendarAsGuest = isSecretLink;
-                            Vue.nextTick(function() {
-                                that.showCalendarViewer = true;
-                            });
+                            that.importCalendarEvent(new TextDecoder().decode(data), file.getOwnerName(), isSecretLink, true);
                         });
             })
+        },
+        importCalendarEvent: function(icalText, owner, isSecretLink, confirmImport) {
+            this.importFile = icalText;
+            this.importCalendarPath = null;
+            this.owner = owner;
+            this.loadCalendarAsGuest = isSecretLink;
+            this.confirmImport = confirmImport;
+            let that = this;
+            setTimeout(function(){ that.showCalendarViewer = true;}, 1000);
         },
         importSharedCalendar: function(path, file, isSecretLink, owner) {
             this.importFile = null;

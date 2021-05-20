@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap-1.css">
+    <link rel="stylesheet" type="text/css" href="css/font-awesome-1.css">
+    <link rel="stylesheet" type="text/css" href="css/style-1.css">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap-tokenfield.min.css">
+    <link rel="stylesheet" type="text/css" href="css/typeahead.css">
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/popper.js"></script>
+    <script src="js/bootstrap.js"></script>
+    <script src="js/bootstrap-tokenfield.min.js"></script>
+    <script src="js/typeahead.bundle.min.js"></script>
+  </head>
+  <body>
+  <div class="email-container">
+    <div class="email-app">
+      <nav>
+        <a id="addComposeNewEmailButton" class="btn btn-success btn-block">New Message</a>
+        <ul class="nav">
+          <li class="nav-item">
+            <a class="nav-link pressable" id='gotoInboxButton'><img src="./images/inbox.svg" class="fa-icon"></img> Inbox <span class="badge badge-danger" id="unreadEmailsTotal"></span></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link pressable" id='gotoSentButton'><img src="./images/rocket.svg" class="fa-icon"></img> Sent</a>
+          </li>
+          <li class="nav-item">
+            <span class="nav-link"><img src="./images/star.svg" class="fa-icon filter-yellow"></img> Starred<span class="badge badge-info" id="starredEmailsTotal"></span></span>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link pressable" id='gotoTrashButton'><img src="./images/trash-o.svg" class="fa-icon"></img> Trash</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link pressable" id='gotoSpamButton'><img src="./images/ban.svg" class="fa-icon"></img> Spam</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link pressable" id='gotoArchiveButton'><img src="./images/archive.svg" class="fa-icon"></img> Archive</a>
+          </li>
+          <li class="nav-item">
+            <span>&nbsp;</span>
+          </li>
+          </ul>
+        <ul class="nav" id="userFoldersId">
+        </ul>
+      </nav>
+        <main id="email-list" class="inbox">
+          <div class="toolbar">
+            <div class="btn-group">
+              <button id="refreshButtonId" type="button" class="btn btn-light">
+                <span id='refreshInboxButton'><img src="./images/refresh.svg" class="fa-icon"></img></span>
+              </button>
+              <h3 id="currentFolderId" class="current-folder"></h3>
+            </div>
+            <div class="btn-group float-right">
+              <form>
+                <input id="searchText" type="text" placeholder="Search..." class="sr-input" maxlength="20">&nbsp;
+                <button type="button" class="btn sr-btn" data-original-title="" title="" id='searchButton'><img src="./images/search.svg" class="fa-icon"></img></button>
+              </form>
+            </div>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn btn-light" id='toggleSelectAllButton'>
+              <span><img id="selectAll" src="./images/square-o.svg" class="fa-icon"></span>
+            </button>
+            <button id="toolbarInboxId" type="button" class="btn btn-light" class="hide">
+              <span><img src="./images/inbox.svg" class="fa-icon"></span>
+            </button>
+            <button type="button" class="btn btn-light" id='deleteMessagesButton'>
+              <span><img src="./images/trash-o.svg" class="fa-icon"></span>
+            </button>
+            <button id="toolbarSpamId" type="button" class="btn btn-light">
+              <span><img src="./images/ban.svg" class="fa-icon"></span>
+            </button>
+            <button id="toolbarArchiveId" type="button" class="btn btn-light">
+              <span><img src="./images/archive.svg" class="fa-icon"></span>
+            </button>
+            <div class="btn-group">
+              <button type="button" class="btn btn-light dropdown-toggle" data-toggle="dropdown">
+                <span><img src="./images/folder.svg" class="fa-icon"></img></span>
+                <span class="caret"></span>
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item pressable" id='createNewFolderButton'><img src="./images/folder.svg" class="fa-icon"></img>&nbsp;create new Folder</a>
+                <div id="moveToUserFoldersId">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="messages" id="messages">
+          </ul>
+        </main>
+        <main id="email-message" class="hide">
+          <form>
+            <div class="form-row mb-3">
+              <label for="to" class="col-2 col-sm-1 col-form-label">To</label>
+              <div class="col-10 col-sm-11">
+                <input type="email" class="form-control token-input" id="to" placeholder="">
+              </div>
+            </div>
+            <div class="form-row mb-3">
+              <label for="cc" class="col-2 col-sm-1 col-form-label">Cc</label>
+              <div class="col-10 col-sm-11">
+                <input type="email" class="form-control  token-input" id="cc" placeholder="">
+              </div>
+            </div>
+            <div class="form-row mb-3">
+              <label for="bcc" class="col-2 col-sm-1 col-form-label">Bcc</label>
+              <div class="col-10 col-sm-11">
+                <input type="email" class="form-control  token-input" id="bcc" placeholder="">
+              </div>
+            </div>
+            <div class="form-row mb-3">
+              <label for="bcc" class="col-2 col-sm-1 col-form-label">Subject</label>
+              <div class="col-10 col-sm-11">
+                <input type="email" class="form-control" id="subject" placeholder="">
+              </div>
+            </div>
+          </form>
+          <div class="row">
+            <div class="col-sm-11 ml-auto">
+              <div class="toolbar" role="toolbar">
+                <div id="icalEvent" class="hide">
+                  <button type="button" class="btn btn-info" id='calendarEventId'>
+                    <span><img src="./images/envelope.svg" class="fa-icon filter-white"></img></span>
+                  </button><p id="icalEventTitleId"></p>
+                </div>
+                <button type="button" class="btn btn-info" id='openUploadDialogButton'>
+                  <span><img src="./images/paperclip.svg" class="fa-icon filter-white"></img></span>
+                </button><p id="attachmentId"></p>
+                <input type="file" id="uploadInput" class="hide" multiple />
+              </div>
+              <div class="form-group mt-4">
+                <textarea class="form-control" id="message" name="body" rows="6" placeholder=""></textarea>
+              </div>
+              <div class="form-group">
+                <button type="submit" class="btn btn-success" id="addSendEmailButton">Send</button>
+                <button type="submit" class="btn btn-danger" id="addDiscardEmailButton">Discard</button>
+              </div>
+            </div>
+          </div>
+        </main>
+        <main id="email-message-detail" class="message hide">
+          <div class="toolbar">
+            <div class="btn-group">
+              <h3>&nbsp;</h3>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="btn-group">
+              <button id="replyToId" type="button" class="btn btn-light">
+                <span><img src="./images/mail-reply.svg" class="fa-icon"></span>
+              </button>
+              <button id="replyToAll" type="button" class="btn btn-light">
+                <span><img src="./images/mail-reply-all.svg" class="fa-icon"></span>
+              </button>
+              <button id="forwardTo" type="button" class="btn btn-light">
+                <span><img src="./images/mail-forward.svg" class="fa-icon"></span>
+              </button>
+            </div>
+            <button id="moveToTrashId" type="button" class="btn btn-light">
+              <span><img src="./images/trash-o.svg" class="fa-icon"></span>
+            </button>
+            <button id="moveToSpamId" type="button" class="btn btn-light">
+              <span><img src="./images/ban.svg" class="fa-icon"></span>
+            </button>
+            <button id="moveToArchiveId" type="button" class="btn btn-light">
+              <span><img src="./images/archive.svg" class="fa-icon"></span>
+            </button>
+            <div class="btn-group">
+              <button type="button" class="btn btn-light dropdown-toggle" data-toggle="dropdown">
+                <span><img src="./images/folder.svg" class="fa-icon"></img></span>
+                <span class="caret"></span>
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" id="dropdownCreateNewFolderButton"><img src="./images/folder.svg" class="fa-icon"></img>&nbsp;create new Folder</a>
+                <div id="moveEmailToUserFoldersId">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="details">
+            <div id="emailSubjectId" class="subject"></div>
+            <div class="header">
+              <div class="from">
+                <span ><text>From:</text><text id="fromId" class="from-field"></text></span>
+                <span ><text>Cc:</text><text id="ccId" class="from-field"></text></span>
+              </div>
+              <div class="date" id="dateTimeId"></div>
+            </div>
+            <div class="content">
+              <p id="contentId">
+              </p>
+            </div>
+            <div class="attachments">
+              <h5 id="icalId" class="hide"> <img src="./images/calendar.svg" class="fa-icon"></img>
+                <span class="attachment-menu" >
+                  <a href="#" id="importCalendarEventId">Import event</a>
+                </span>
+              </h5>
+              <h5> <img src="./images/paperclip.svg" class="fa-icon"></img> Attachments <span id="attachmentCountId"></span>
+              </h5>
+              <div id="attachmentsId">
+              </div>
+            </div>
+          </div>
+        </main>
+    </div>
+  </div>
+  <script src="js/init.js"></script>
+  </body>
+</html>
+
