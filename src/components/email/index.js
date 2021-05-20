@@ -73,7 +73,7 @@ module.exports = {
                     let future2 = peergos.shared.util.Futures.incomplete();
                     that.reduceCreatingDirectories(email, 0, requiredDirs, future2);
                     future2.thenApply(done => {
-                        let sharees = peergos.client.JsUtil.asSet(['bridge']);
+                        let sharees = peergos.client.JsUtil.asSet(['email-bridge']);
                         let dirStr = that.context.username + '/.apps/email/data/pending';
                         let directoryPath = peergos.client.PathUtils.directoryToPath(dirStr.split('/'));
                         that.context.shareWriteAccessWith(directoryPath, sharees).thenApply(function(b) {

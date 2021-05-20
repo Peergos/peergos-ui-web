@@ -538,7 +538,7 @@ module.exports = {
 
 		    var pendingOutgoingUsernames = [];
 		    socialState.pendingOutgoing.toArray([]).map(u => pendingOutgoingUsernames.push(u));
-            if(friendNames.includes('bridge')) {
+            if(friendNames.includes('email-bridge')) {
                 that.isEmailAvailable = true;
             }
 		    that.social = {
