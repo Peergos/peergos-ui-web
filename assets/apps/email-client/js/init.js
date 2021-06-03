@@ -375,7 +375,7 @@ function addFoldersToDropdown(id, func) {
         a.appendChild(img);
 
         var text = document.createElement("text");
-        text.innerText = ' move to ' + folder.name;
+        text.innerText = ' Move to ' + folder.name;
         a.appendChild(text);
 
         moveToFoldersList.appendChild(a);

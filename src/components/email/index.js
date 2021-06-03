@@ -444,7 +444,7 @@ module.exports = {
             this.prompt_placeholder = 'New Folder name';
             this.prompt_value = "";
             this.prompt_message = 'Enter a new folder name';
-            this.prompt_max_input_size = 20;
+            this.prompt_max_input_size = 8;
             this.prompt_consumer_func = function(prompt_result) {
                 if (prompt_result === null)
                     return;
