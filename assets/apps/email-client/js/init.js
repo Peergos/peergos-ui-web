@@ -738,6 +738,7 @@ function requestDeleteEmail(email, folder) {
 function respondToDeleteEmails(emails, fromFolder) {
     let folder = folderEmails.get(fromFolder);
     removeItemsFromArray(emails, folder);
+    toggleSelectAll();
     loadFolder(fromFolder);
 }
 
@@ -754,6 +755,7 @@ function respondToMoveEmails(emails, toFolder) {
     }
     let folder = folderEmails.get(currentFolder);
     removeItemsFromArray(emails, folder);
+    toggleSelectAll();
     loadFolder(currentFolder);
 }
 
@@ -1136,7 +1138,12 @@ function navigateToFolder(folder) {
 
 function addAttachments(files) {
     for(var i = 0; i < files.length; i++) {
-        currentAttachmentFiles.push(files[i]);
+        let file = files[i];
+        if (file.size <= 1024 * 1024 * 10) {
+            currentAttachmentFiles.push(file);
+        } else {
+            requestShowMessage("Individual attachment file size limit is: 10 MiB. File: " + file.name + " is too large");
+        }
     }
     updateAttachmentUI();
 }
@@ -1146,7 +1153,7 @@ function updateAttachmentUI() {
     element.replaceChildren();
     for(var i = 0; i < currentAttachmentFiles.length; i++) {
         let item = currentAttachmentFiles[i];
-        let json = {file: item.name, size: item.size, type: item.type};
+        let json = {name: item.name, size: item.size, type: item.type};
         var img = document.createElement("img");
         img.className = "fa-icon";
         img.src = "./images/trash-o.svg";
