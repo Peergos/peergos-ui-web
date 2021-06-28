@@ -1,9 +1,12 @@
+html {
+  scroll-behavior: smooth;
+}
 
 .email-app {
     display: flex;
     flex-direction: row;
     background: #fff;
-    border: 1px solid #e1e6ef;
+    height: 100%
 }
 
 .email-app nav {

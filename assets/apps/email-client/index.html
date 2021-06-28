@@ -16,8 +16,10 @@
     <script src="js/typeahead.bundle.min.js"></script>
   </head>
   <body>
-  <div class="email-container">
-    <div class="email-app">
+  <div id="email-container" class="email-container">
+    <a id="scrollToComposeNewEmail" href="#email-message" class="hide"></a>
+    <a id="scrollToFolder" href="#email-list" class="hide"></a>
+    <div id="email-app" class="email-app">
       <nav>
         <a id="addComposeNewEmailButton" class="btn btn-success btn-block">New Message</a>
         <ul class="nav">

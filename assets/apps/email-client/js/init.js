@@ -39,7 +39,13 @@ let handler = function (e) {
         respondToUpdateEmail();
     }
 };
+let resizeHandler = function() {
+    var container = document.getElementById("email-container");
+    container.style.height = window.innerHeight + 'px';
+}
+
 window.addEventListener('message', handler);
+window.addEventListener("resize", resizeHandler);
 document.body.addEventListener('submit', onSubmit);
 
 var unreadEmails = 0;
@@ -60,6 +66,7 @@ var currentlyForwardingTo = null;
 let toUsernames = [];
 let ccUsernames = [];
 let bccUsernames = [];
+
 
 function resetTypeahead(fieldId, values) {
     $('#' + fieldId).tokenfield('setTokens', values);
@@ -414,6 +421,7 @@ function addFoldersToNavBar() {
 
         foldersList.appendChild(item);
     });
+    resizeHandler();
 }
 function fromList(array) {
     return array.join(", ");
@@ -1014,6 +1022,9 @@ function composeEmail(toList, ccList, bccList, replyingTo, forwardingTo) {
     composeEmail.classList.remove("hide");
     composeEmail.classList.add("display-block");
 
+    let scrollAnchor = document.getElementById("scrollToComposeNewEmail");
+    scrollAnchor.click();
+
     resetTypeahead("to", toList);
     resetTypeahead("cc", ccList);
     resetTypeahead("bcc", bccList);
@@ -1072,6 +1083,9 @@ function loadFolder(folderName) {
         let emailDetail = document.getElementById("email-message-detail");
         emailDetail.classList.add("hide");
         emailDetail.classList.remove("display-block");
+
+        let scrollAnchor = document.getElementById("scrollToFolder");
+        scrollAnchor.click();
 
         let folderNameElement = document.getElementById("currentFolderId");
         folderNameElement.innerText = capitalise(folderName);
